@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DJANGO_SETTINGS_MODULE=config.settings.prod \
     PORT=8080
 
-# System libraries required by WeasyPrint (PDF generation).
+# weasyprint runtime libs
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpango-1.0-0 \
@@ -24,7 +24,7 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-# Prod settings require these at import time; collectstatic never touches the database.
+# prod settings require these at import, collectstatic never hits the db
 RUN SECRET_KEY=collectstatic-only \
     DATABASE_URL=sqlite://:memory: \
     ALLOWED_HOSTS=localhost \
@@ -35,5 +35,5 @@ USER app
 
 EXPOSE 8080
 
-# Migrations are deliberately not run on start; run them as a one-off job (see infra/deploy.sh).
+# migrations run as a separate job, see infra/deploy.sh
 CMD ["sh", "-c", "exec gunicorn config.wsgi:application --bind 0.0.0.0:${PORT} --workers 1 --threads 8 --timeout 0 --access-logfile -"]

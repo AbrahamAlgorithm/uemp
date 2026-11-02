@@ -4,8 +4,6 @@ from django.db import models
 
 
 class UserManager(BaseUserManager):
-    """Manager for a user model that signs in with email instead of a username."""
-
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):

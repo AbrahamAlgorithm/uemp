@@ -9,7 +9,7 @@ from rest_framework.response import Response
 
 logger = logging.getLogger(__name__)
 
-# Named once in SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"] so both fields share one enum.
+# referenced by path in ENUM_NAME_OVERRIDES
 HEALTH_STATES = ["ok", "error"]
 
 HealthSerializer = inline_serializer(
@@ -26,7 +26,6 @@ HealthSerializer = inline_serializer(
 @authentication_classes([])
 @permission_classes([AllowAny])
 def health(request):
-    """Report API liveness and whether the database answers a SELECT 1."""
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")

@@ -1,5 +1,3 @@
-"""WSGI entrypoint used by gunicorn in the production container."""
-
 import os
 
 from django.core.wsgi import get_wsgi_application

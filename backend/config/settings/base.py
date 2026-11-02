@@ -1,10 +1,3 @@
-"""
-Settings shared by every environment.
-
-Environment-specific values (SECRET_KEY, DEBUG, DATABASES, ALLOWED_HOSTS and the
-CORS/CSRF origins) are set in dev.py and prod.py.
-"""
-
 from pathlib import Path
 
 import environ
@@ -13,14 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
 
-# Load the repo-root .env for local (non-Docker) runs. Real environment variables
-# take precedence, and the file does not exist inside containers.
 ENV_FILE = BASE_DIR.parent / ".env"
 if ENV_FILE.is_file():
     env.read_env(ENV_FILE)
-
-
-# Applications
 
 DJANGO_APPS = [
     "django.contrib.admin",
@@ -81,9 +69,6 @@ TEMPLATES = [
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
-# Authentication
-
 AUTH_USER_MODEL = "accounts.User"
 
 PASSWORD_HASHERS = [
@@ -100,28 +85,15 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-
-# Internationalization
-
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-
-# Static files (served by WhiteNoise)
-
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-
-# CORS: the browser normally reaches the API through the Next.js proxy (same
-# origin), but direct cross-origin calls must be able to send cookies.
-
 CORS_ALLOW_CREDENTIALS = True
-
-
-# Django REST Framework
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -142,9 +114,6 @@ SPECTACULAR_SETTINGS = {
         "HealthStateEnum": "core.views.HEALTH_STATES",
     },
 }
-
-
-# Logging: everything to stdout so it reaches Cloud Run / docker logs.
 
 LOGGING = {
     "version": 1,

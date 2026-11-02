@@ -9,7 +9,6 @@ gunicorn==26.2.0
 argon2-cffi==25.1.0
 psycopg[binary]==3.3.6
 
-# Testing
 pytest==9.2.0
 pytest-django==4.14.0
 factory-boy==3.3.3
