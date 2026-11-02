@@ -15,7 +15,6 @@ import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { formatDate, semesterLabel } from "@/lib/format";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 export default function AdminDashboardPage() {
   const { data, error, reload } = useAsync(api.getAdminDashboard);
@@ -30,17 +29,17 @@ export default function AdminDashboardPage() {
     <>
       <PageHeader title="University overview" description={semesterLabel(data.semester)} />
       <StatGrid>
-        <StatCard label="Students" value={counts.students} icon={Users} href="/admin/users" />
-        <StatCard label="Lecturers" value={counts.lecturers} icon={Users} hint="Active" href="/admin/users" />
+        <StatCard label="Students" tone="blue" value={counts.students} icon={Users} href="/admin/users" />
+        <StatCard label="Lecturers" tone="violet" value={counts.lecturers} icon={Users} hint="Active" href="/admin/users" />
         <StatCard
-          label="Departments"
+          label="Departments" tone="green"
           value={counts.departments}
           icon={Building}
           hint={`In ${counts.faculties} faculties`}
           href="/admin/departments"
         />
         <StatCard
-          label="Registrations"
+          label="Registrations" tone="orange"
           value={counts.registrations}
           icon={ClipboardList}
           hint={`${counts.courses} courses in the catalogue`}
@@ -49,7 +48,7 @@ export default function AdminDashboardPage() {
       </StatGrid>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Card className="pb-0">
+        <Card className="h-fit pb-0">
           <CardHeader>
             <CardTitle>Pending approvals by department</CardTitle>
             <CardAction>
@@ -59,9 +58,9 @@ export default function AdminDashboardPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className={HEAD}>Department</TableHead>
-                <TableHead className={`${HEAD} text-right`}>Pending</TableHead>
-                <TableHead className={HEAD}>Waiting since</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead className="text-right">Pending</TableHead>
+                <TableHead>Waiting since</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -90,8 +89,8 @@ export default function AdminDashboardPage() {
           <CardHeader>
             <CardTitle>Recent activity</CardTitle>
             <CardAction>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/admin/audit-log">Audit log</Link>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/admin/audit-log">See all</Link>
               </Button>
             </CardAction>
           </CardHeader>

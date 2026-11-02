@@ -16,7 +16,6 @@ import { SEMESTER_LABELS } from "@/lib/constants";
 import { semesterLabel } from "@/lib/format";
 import { formatGpa } from "@/lib/grading";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 export default function StudentResultsPage() {
   const { data, error, reload } = useAsync(api.getMyResults);
@@ -54,9 +53,9 @@ export default function StudentResultsPage() {
         }
       />
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="CGPA" value={formatGpa(data.cgpa)} icon={GraduationCap} hint="On a 5.00 scale" />
-        <StatCard label="Units completed" value={data.totalUnits} icon={BookCheck} />
-        <StatCard label="Semesters" value={data.semesters.length} icon={CalendarCheck} hint="With approved results" />
+        <StatCard label="CGPA" tone="blue" value={formatGpa(data.cgpa)} icon={GraduationCap} hint="On a 5.00 scale" />
+        <StatCard label="Units completed" tone="green" value={data.totalUnits} icon={BookCheck} />
+        <StatCard label="Semesters" tone="violet" value={data.semesters.length} icon={CalendarCheck} hint="With approved results" />
       </div>
 
       <Card className="mt-6 pb-0">
@@ -66,12 +65,12 @@ export default function StudentResultsPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={HEAD}>Session</TableHead>
-              <TableHead className={HEAD}>Semester</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Courses</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Units</TableHead>
-              <TableHead className={`${HEAD} text-right`}>GPA</TableHead>
-              <TableHead className={`${HEAD} text-right`}>CGPA</TableHead>
+              <TableHead>Session</TableHead>
+              <TableHead>Semester</TableHead>
+              <TableHead className="text-right">Courses</TableHead>
+              <TableHead className="text-right">Units</TableHead>
+              <TableHead className="text-right">GPA</TableHead>
+              <TableHead className="text-right">CGPA</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

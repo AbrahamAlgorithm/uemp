@@ -25,10 +25,10 @@ export default function AdminResultsPage() {
         description="Departments approve their own results. This view tracks progress across the university."
       />
       <StatGrid>
-        <StatCard label="Awaiting approval" value={count("SUBMITTED")} icon={Clock} hint="This semester" tone={count("SUBMITTED") ? "attention" : "default"} />
-        <StatCard label="Approved" value={count("APPROVED")} icon={CircleCheck} hint="This semester" />
-        <StatCard label="Returned to lecturers" value={count("REJECTED")} icon={TriangleAlert} hint="This semester" />
-        <StatCard label="Still in draft" value={count("DRAFT")} icon={PencilLine} hint="This semester" />
+        <StatCard label="Awaiting approval" tone="orange" value={count("SUBMITTED")} icon={Clock} hint="This semester" />
+        <StatCard label="Approved" tone="green" value={count("APPROVED")} icon={CircleCheck} hint="This semester" />
+        <StatCard label="Returned to lecturers" tone="red" value={count("REJECTED")} icon={TriangleAlert} hint="This semester" />
+        <StatCard label="Still in draft" tone="neutral" value={count("DRAFT")} icon={PencilLine} hint="This semester" />
       </StatGrid>
       <div className="mt-6">
         <ResultSheetsBrowser sheets={data} showDepartment />

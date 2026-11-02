@@ -131,9 +131,9 @@ export default function DepartmentRegistrationsPage() {
     <>
       <PageHeader title="Registrations" description={data[0] ? semesterLabel(data[0].semester) : "This semester"} />
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Course registrations" value={data.length} icon={ClipboardList} />
-        <StatCard label="Students registered" value={byStudent.length} icon={Users} />
-        <StatCard label="Average load" value={`${averageUnits.toFixed(1)} units`} icon={ClipboardList} hint="Per registered student" />
+        <StatCard label="Course registrations" tone="blue" value={data.length} icon={ClipboardList} />
+        <StatCard label="Students registered" tone="violet" value={byStudent.length} icon={Users} />
+        <StatCard label="Average load" tone="green" value={`${averageUnits.toFixed(1)} units`} icon={ClipboardList} hint="Per registered student" />
       </div>
       <Tabs defaultValue="course">
         <TabsList>

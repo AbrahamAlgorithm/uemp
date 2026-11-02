@@ -30,7 +30,6 @@ const studentColumns: ColumnDef<Student>[] = [
   { accessorKey: "status", header: "Status", cell: ({ row }) => <UserStatusBadge status={row.original.status} /> },
 ];
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 export default function DepartmentReportsPage() {
   const { data, error, reload } = useAsync(api.getDepartmentReport);
@@ -56,7 +55,7 @@ export default function DepartmentReportsPage() {
         }
       />
       <Tabs defaultValue="students">
-        <TabsList className="print:hidden">
+        <TabsList variant="line" className="print:hidden">
           <TabsTrigger value="students">Student list</TabsTrigger>
           <TabsTrigger value="registrations">Registration report</TabsTrigger>
           <TabsTrigger value="performance">Performance summary</TabsTrigger>
@@ -77,15 +76,15 @@ export default function DepartmentReportsPage() {
         </TabsContent>
 
         <TabsContent value="registrations" className="mt-4">
-          <Card className="py-0">
+          <Card size="sm">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className={HEAD}>Code</TableHead>
-                  <TableHead className={HEAD}>Title</TableHead>
-                  <TableHead className={`${HEAD} text-right`}>Level</TableHead>
-                  <TableHead className={`${HEAD} text-right`}>Units</TableHead>
-                  <TableHead className={`${HEAD} text-right`}>Registered</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="text-right">Level</TableHead>
+                  <TableHead className="text-right">Units</TableHead>
+                  <TableHead className="text-right">Registered</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -131,13 +130,13 @@ function PerformanceTable({ rows }: { rows: CoursePerformance[] }) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={HEAD}>Course</TableHead>
-              <TableHead className={HEAD}>Status</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Students</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Average</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Pass rate</TableHead>
+              <TableHead>Course</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Students</TableHead>
+              <TableHead className="text-right">Average</TableHead>
+              <TableHead className="text-right">Pass rate</TableHead>
               {GRADES.map((grade) => (
-                <TableHead key={grade} className={`${HEAD} text-right`}>
+                <TableHead key={grade} className="text-right">
                   {grade}
                 </TableHead>
               ))}

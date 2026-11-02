@@ -45,15 +45,14 @@ export default function DepartmentDashboardPage() {
       )}
 
       <StatGrid>
-        <StatCard label="Students" value={counts.students} icon={Users} href="/department/students" />
-        <StatCard label="Lecturers" value={counts.lecturers} icon={UserCog} hint="Active" href="/department/lecturers" />
-        <StatCard label="Courses" value={counts.courses} icon={BookOpen} href="/department/courses" />
+        <StatCard label="Students" tone="blue" value={counts.students} icon={Users} href="/department/students" />
+        <StatCard label="Lecturers" tone="violet" value={counts.lecturers} icon={UserCog} hint="Active" href="/department/lecturers" />
+        <StatCard label="Courses" tone="green" value={counts.courses} icon={BookOpen} href="/department/courses" />
         <StatCard
-          label="Pending approvals"
+          label="Pending approvals" tone="orange"
           value={counts.pendingApprovals}
           icon={ClipboardCheck}
           href="/department/results"
-          tone={counts.pendingApprovals > 0 ? "attention" : "default"}
         />
       </StatGrid>
 
@@ -62,7 +61,7 @@ export default function DepartmentDashboardPage() {
           <CardHeader>
             <CardTitle>Waiting for your review</CardTitle>
             <CardAction>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild>
                 <Link href="/department/results">All result sheets</Link>
               </Button>
             </CardAction>

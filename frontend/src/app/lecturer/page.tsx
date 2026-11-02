@@ -16,7 +16,6 @@ import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import type { LecturerCourse } from "@/lib/types";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 const needsAction = (course: LecturerCourse) => course.sheetStatus === "DRAFT" || course.sheetStatus === "REJECTED";
 
 export default function LecturerDashboardPage() {
@@ -54,17 +53,16 @@ export default function LecturerDashboardPage() {
       )}
 
       <StatGrid>
-        <StatCard label="Assigned courses" value={data.length} icon={BookOpen} href="/lecturer/courses" />
-        <StatCard label="Students" value={data.reduce((sum, course) => sum + course.studentCount, 0)} icon={Users} hint="Across all courses" />
+        <StatCard label="Assigned courses" tone="blue" value={data.length} icon={BookOpen} href="/lecturer/courses" />
+        <StatCard label="Students" tone="violet" value={data.reduce((sum, course) => sum + course.studentCount, 0)} icon={Users} hint="Across all courses" />
         <StatCard
-          label="Needs your action"
+          label="Needs your action" tone="orange"
           value={data.filter(needsAction).length}
           icon={PencilLine}
           hint="Drafts and returned sheets"
-          tone={data.some(needsAction) ? "attention" : "default"}
         />
         <StatCard
-          label="Awaiting approval"
+          label="Awaiting approval" tone="green"
           value={data.filter((course) => course.sheetStatus === "SUBMITTED").length}
           icon={Clock}
           href="/lecturer/submissions"
@@ -81,11 +79,11 @@ export default function LecturerDashboardPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className={HEAD}>Course</TableHead>
-                <TableHead className={`${HEAD} text-right`}>Students</TableHead>
-                <TableHead className={`${HEAD} text-right`}>Scored</TableHead>
-                <TableHead className={HEAD}>Status</TableHead>
-                <TableHead className={HEAD}>
+                <TableHead>Course</TableHead>
+                <TableHead className="text-right">Students</TableHead>
+                <TableHead className="text-right">Scored</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>

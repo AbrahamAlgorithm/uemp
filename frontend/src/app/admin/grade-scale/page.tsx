@@ -18,7 +18,6 @@ import { gradeScaleSchema, type GradeScaleInput } from "@/lib/schemas";
 import { withToast } from "@/lib/toast";
 import type { GradeBand } from "@/lib/types";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 export default function GradeScalePage() {
   const { data, error, reload } = useAsync(api.getGradeScale);
@@ -69,10 +68,10 @@ export default function GradeScalePage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className={HEAD}>Grade</TableHead>
-                <TableHead className={HEAD}>From</TableHead>
-                <TableHead className={HEAD}>To</TableHead>
-                <TableHead className={HEAD}>Point</TableHead>
+                <TableHead>Grade</TableHead>
+                <TableHead>From</TableHead>
+                <TableHead>To</TableHead>
+                <TableHead>Point</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -67,17 +67,17 @@ export default function CourseRegistrationPage() {
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <Card className="py-0">
+          <Card size="sm">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-12 bg-muted/50">
+                  <TableHead className="w-12">
                     <span className="sr-only">Select</span>
                   </TableHead>
-                  <TableHead className="bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase">Code</TableHead>
-                  <TableHead className="bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase">Title</TableHead>
-                  <TableHead className="bg-muted/50 text-right text-xs tracking-wide text-muted-foreground uppercase">Units</TableHead>
-                  <TableHead className="bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase">Status</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="text-right">Units</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -106,7 +106,7 @@ export default function CourseRegistrationPage() {
                         {course.registered ? (
                           <Badge variant="secondary">Registered</Badge>
                         ) : selected.has(course.id) ? (
-                          <Badge variant="outline" className="border-primary/40 text-primary">
+                          <Badge variant="outline" className="border-foreground/30">
                             Selected
                           </Badge>
                         ) : null}

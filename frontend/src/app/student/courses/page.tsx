@@ -12,7 +12,6 @@ import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { formatDate, semesterLabel } from "@/lib/format";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 export default function MyCoursesPage() {
   const { data, error, reload } = useAsync(api.getMyCourses);
@@ -52,11 +51,11 @@ export default function MyCoursesPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className={HEAD}>Code</TableHead>
-                <TableHead className={HEAD}>Title</TableHead>
-                <TableHead className={`${HEAD} text-right`}>Units</TableHead>
-                <TableHead className={HEAD}>Lecturer</TableHead>
-                <TableHead className={HEAD}>Registered</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead className="text-right">Units</TableHead>
+                <TableHead>Lecturer</TableHead>
+                <TableHead>Registered</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

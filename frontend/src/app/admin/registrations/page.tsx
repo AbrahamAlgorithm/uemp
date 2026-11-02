@@ -16,7 +16,6 @@ import { api } from "@/lib/api";
 import { formatDate, semesterLabel } from "@/lib/format";
 import type { Registration } from "@/lib/types";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 const columns: ColumnDef<Registration>[] = [
   {
@@ -71,16 +70,15 @@ export default function AdminRegistrationsPage() {
     <>
       <PageHeader title="Registration monitoring" description={semesterLabel(semester)} />
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Course registrations" value={registrations.length} icon={ClipboardList} />
+        <StatCard label="Course registrations" tone="blue" value={registrations.length} icon={ClipboardList} />
         <StatCard
-          label="Students registered"
+          label="Students registered" tone="orange"
           value={`${registeredStudents.size} / ${active.length}`}
           icon={Users}
           hint="Active students with at least one course"
-          tone={registeredStudents.size < active.length ? "attention" : "default"}
         />
         <StatCard
-          label="Average load"
+          label="Average load" tone="green"
           value={`${registeredStudents.size ? (totalUnits / registeredStudents.size).toFixed(1) : "0"} units`}
           icon={Gauge}
           hint="Per registered student"
@@ -94,11 +92,11 @@ export default function AdminRegistrationsPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={HEAD}>Department</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Active students</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Registered</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Not yet registered</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Course registrations</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead className="text-right">Active students</TableHead>
+              <TableHead className="text-right">Registered</TableHead>
+              <TableHead className="text-right">Not yet registered</TableHead>
+              <TableHead className="text-right">Course registrations</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

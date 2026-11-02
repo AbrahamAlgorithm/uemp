@@ -93,8 +93,8 @@ export default function AuditLogPage() {
               allLabel="All actions"
               options={actions.map((value) => ({ value, label: AUDIT_ACTION_LABELS[value] }))}
             />
-            <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" className="w-full sm:w-40" />
-            <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="w-full sm:w-40" />
+            <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="From date" className="h-10 w-full rounded-full px-4 sm:w-40" />
+            <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="h-10 w-full rounded-full px-4 sm:w-40" />
           </>
         }
       />

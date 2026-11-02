@@ -14,7 +14,6 @@ import { formatPercent, semesterLabel } from "@/lib/format";
 import { formatGpa } from "@/lib/grading";
 import type { SheetStatus } from "@/lib/types";
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 const STATUSES: SheetStatus[] = ["DRAFT", "SUBMITTED", "REJECTED", "APPROVED"];
 
 export default function UniversityReportsPage() {
@@ -49,14 +48,14 @@ export default function UniversityReportsPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={HEAD}>Department</TableHead>
-              <TableHead className={HEAD}>Faculty</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Students</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Lecturers</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Courses</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Registrations</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Average CGPA</TableHead>
-              <TableHead className={`${HEAD} text-right`}>Pass rate</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead>Faculty</TableHead>
+              <TableHead className="text-right">Students</TableHead>
+              <TableHead className="text-right">Lecturers</TableHead>
+              <TableHead className="text-right">Courses</TableHead>
+              <TableHead className="text-right">Registrations</TableHead>
+              <TableHead className="text-right">Average CGPA</TableHead>
+              <TableHead className="text-right">Pass rate</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
