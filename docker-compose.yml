@@ -1,0 +1,62 @@
+# Local development only. Values fall back to the defaults below; override any of
+# them in a repo-root .env (see .env.example).
+name: uemp
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-uemp}
+      POSTGRES_USER: ${POSTGRES_USER:-uemp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uemp}
+    ports:
+      # Published on 5433 so it doesn't clash with a locally installed Postgres.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-local-dev-only}
+      DEBUG: ${DEBUG:-true}
+      DATABASE_URL: postgres://${POSTGRES_USER:-uemp}:${POSTGRES_PASSWORD:-uemp}@db:5432/${POSTGRES_DB:-uemp}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      target: deps
+    command: npm run dev -- --hostname 0.0.0.0 --port 3000
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      # Keep the container's Linux node_modules and build cache out of the bind mount.
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
