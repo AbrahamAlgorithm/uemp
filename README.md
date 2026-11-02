@@ -96,14 +96,14 @@ npm run build
 
 ## Test Credentials
 
-Demo accounts while mock data is on. The password for all of them is `password123`.
+Demo accounts while mock data is on. Sign in with the staff or student ID; the password for all of them is `password123`. Account activation and password reset accept the email below, and the emailed code is always `246810`.
 
-| Role             | Email                                      |
-| ---------------- | ------------------------------------------ |
-| Student          | chiamaka.okafor@student.crestview.edu.ng   |
-| Lecturer         | a.ogunleye@crestview.edu.ng                |
-| Department admin | csc.admin@crestview.edu.ng                 |
-| Super admin      | registry@crestview.edu.ng                  |
+| Role             | Staff/Student ID | Email                                      |
+| ---------------- | ---------------- | ------------------------------------------ |
+| Student          | CSC/2024/0369    | chiamaka.okafor@student.crestview.edu.ng   |
+| Lecturer         | CVU/CSC/073      | a.ogunleye@crestview.edu.ng                |
+| Department admin | CVU/CSC/017      | csc.admin@crestview.edu.ng                 |
+| Super admin      | CVU/REG/010      | registry@crestview.edu.ng                  |
 
 ## Architecture
 
