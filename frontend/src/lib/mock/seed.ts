@@ -80,6 +80,7 @@ export interface CourseRow {
 }
 
 export const DEMO_PASSWORD = "password123";
+export const DEMO_ACTIVATION_CODE = "246810";
 export const CURRENT_SESSION_ID = 4;
 
 export const FACULTIES: FacultyRow[] = [

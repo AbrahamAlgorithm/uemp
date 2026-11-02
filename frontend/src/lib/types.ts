@@ -27,9 +27,17 @@ export interface SessionUser {
 
 export interface DemoAccount {
   role: Role;
+  identifier: string;
   email: string;
   password: string;
   name: string;
+  activationCode: string;
+}
+
+export interface ActivationChallenge {
+  maskedEmail: string;
+  expiresInSeconds: number;
+  resendInSeconds: number;
 }
 
 export interface Faculty {

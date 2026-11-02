@@ -13,10 +13,28 @@ const requiredText = (label: string, max = 120) =>
 const pick = (label: string) => z.number({ error: `Select a ${label}` });
 
 export const loginSchema = z.object({
-  email: z.email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
+  identifier: z.string().trim().min(1, "Required."),
+  password: z.string().min(1, "Required."),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const activationRequestSchema = z.object({
+  identifier: z.string().trim().min(1, "Required."),
+  email: z.email("Enter the email address on your record"),
+});
+export type ActivationRequestInput = z.infer<typeof activationRequestSchema>;
+
+export const newPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Use at least 8 characters")
+      .regex(/[A-Za-z]/, "Include at least one letter")
+      .regex(/\d/, "Include at least one number"),
+    confirm: z.string().min(1, "Required."),
+  })
+  .refine((values) => values.password === values.confirm, { path: ["confirm"], message: "Passwords don't match" });
+export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 
 export const studentContactSchema = z.object({
   phone,

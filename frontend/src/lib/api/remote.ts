@@ -1,4 +1,5 @@
 import type {
+  ActivationRequestInput,
   CourseInput,
   DepartmentInput,
   FacultyInput,
@@ -13,6 +14,7 @@ import type {
 } from "../schemas";
 import type {
   AcademicSession,
+  ActivationChallenge,
   AdminDashboard,
   AuditEntry,
   Course,
@@ -52,6 +54,9 @@ const put = <T>(path: string, json: unknown) => request<T>(path, { method: "PUT"
 
 export const remoteApi = {
   login: (input: LoginInput) => post<SessionUser>("auth/login/", input),
+  requestActivation: (input: ActivationRequestInput) => post<ActivationChallenge>("auth/activate/", input),
+  verifyActivation: (input: { identifier: string; code: string }) => post<{ token: string }>("auth/activate/verify/", input),
+  completeActivation: (input: { token: string; password: string }) => post<void>("auth/activate/complete/", input),
   logout: () => post<void>("auth/logout/"),
   getSession: async (): Promise<SessionUser | null> => {
     try {
