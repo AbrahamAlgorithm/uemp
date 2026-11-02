@@ -27,7 +27,6 @@ const SCORE_SCHEMAS: Record<Kind, z.ZodNumber> = {
   exam: z.number().min(0, "Can't be negative").max(EXAM_MAX, `Max ${EXAM_MAX}`),
 };
 
-const HEAD = "bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase";
 
 function parse(value: string): number | null {
   return value.trim() === "" ? null : Number(value);
@@ -116,18 +115,18 @@ export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
     <div className="space-y-4">
       <SheetBanner sheet={sheet} audience="lecturer" />
 
-      <Card className="py-0">
+      <Card size="sm">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={cn(HEAD, "w-10")}>#</TableHead>
-              <TableHead className={HEAD}>Matric no</TableHead>
-              <TableHead className={HEAD}>Name</TableHead>
-              <TableHead className={cn(HEAD, "w-28")}>CA / {CA_MAX}</TableHead>
-              <TableHead className={cn(HEAD, "w-28")}>Exam / {EXAM_MAX}</TableHead>
-              <TableHead className={cn(HEAD, "text-right")}>Total</TableHead>
-              <TableHead className={cn(HEAD, "text-center")}>Grade</TableHead>
-              <TableHead className={cn(HEAD, "text-right")}>Point</TableHead>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead>Matric no</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead className="w-28">CA / {CA_MAX}</TableHead>
+              <TableHead className="w-28">Exam / {EXAM_MAX}</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-center">Grade</TableHead>
+              <TableHead className="text-right">Point</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -172,7 +171,7 @@ export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
       </Card>
 
       {editable && (
-        <div className="sticky bottom-4 z-10 mt-4 flex flex-col gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm sm:flex-row sm:items-center">
+        <div className="sticky bottom-4 z-10 mt-4 flex flex-col gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm sm:flex-row sm:items-center">
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground tabular-nums">
               {scored} of {rows.length}

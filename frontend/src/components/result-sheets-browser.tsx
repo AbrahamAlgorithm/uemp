@@ -80,24 +80,29 @@ export function ResultSheetsBrowser({ sheets, reviewHref, showDepartment }: Resu
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="-mx-1 overflow-x-auto px-1">
-          <Tabs value={status} onValueChange={(value) => setStatus(value as SheetStatus | "all")}>
-            <TabsList>
-              {STATUS_TABS.map((value) => (
-                <TabsTrigger key={value} value={value}>
-                  {value === "SUBMITTED" ? "Pending" : SHEET_STATUS_LABELS[value]}
-                  <span className="ml-1 text-xs text-muted-foreground tabular-nums">{count(value)}</span>
-                </TabsTrigger>
-              ))}
-              <TabsTrigger value="all">
-                All <span className="ml-1 text-xs text-muted-foreground tabular-nums">{inFilters.length}</span>
+    <DataTable
+      columns={columns}
+      data={rows}
+      searchPlaceholder="Search course or lecturer"
+      emptyTitle="No result sheets"
+      emptyDescription="Nothing matches these filters."
+      leading={
+        <Tabs value={status} onValueChange={(value) => setStatus(value as SheetStatus | "all")}>
+          <TabsList>
+            {STATUS_TABS.map((value) => (
+              <TabsTrigger key={value} value={value}>
+                {value === "SUBMITTED" ? "Pending" : SHEET_STATUS_LABELS[value]}
+                <span className="ml-1 text-xs tabular-nums opacity-60">{count(value)}</span>
               </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+            ))}
+            <TabsTrigger value="all">
+              All <span className="ml-1 text-xs tabular-nums opacity-60">{inFilters.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      }
+      toolbar={
+        <>
           {showDepartment && (
             <FilterSelect
               label="Department"
@@ -114,15 +119,8 @@ export function ResultSheetsBrowser({ sheets, reviewHref, showDepartment }: Resu
             allLabel="All semesters"
             options={semesters.map((row) => ({ value: row.id, label: semesterLabel(row) }))}
           />
-        </div>
-      </div>
-      <DataTable
-        columns={columns}
-        data={rows}
-        searchPlaceholder="Search course or lecturer"
-        emptyTitle="No result sheets"
-        emptyDescription="Nothing matches these filters."
-      />
-    </div>
+        </>
+      }
+    />
   );
 }

@@ -14,7 +14,7 @@ interface FilterSelectProps {
 export function FilterSelect({ label, value, onChange, options, allLabel }: FilterSelectProps) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger aria-label={label} className="w-full sm:w-44">
+      <SelectTrigger aria-label={label} className="w-full rounded-full pl-4 data-[size=default]:h-10 sm:w-auto sm:min-w-44">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

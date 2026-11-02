@@ -10,7 +10,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, actions, back }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 space-y-1">
         {back && (
           <Link
@@ -21,7 +21,7 @@ export function PageHeader({ title, description, actions, back }: PageHeaderProp
             {back.label}
           </Link>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[28px] sm:leading-9">{title}</h1>
         {description && <div className="text-sm text-muted-foreground">{description}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 print:hidden">{actions}</div>}

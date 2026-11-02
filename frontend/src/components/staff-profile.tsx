@@ -57,7 +57,7 @@ export function StaffProfileView() {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-4 text-center">
             <Avatar className="size-16">
-              <AvatarFallback className="bg-accent text-lg font-medium text-accent-foreground">
+              <AvatarFallback className="bg-primary text-lg font-medium text-primary-foreground">
                 {initials(data.fullName)}
               </AvatarFallback>
             </Avatar>
