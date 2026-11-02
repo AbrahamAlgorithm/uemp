@@ -16,7 +16,6 @@ const ITEM =
 
 export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const signOut = useSignOut();
   const home = ROLE_HOME[role];
 
   const isActive = (href: string) =>
@@ -52,10 +51,16 @@ export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () =
           </ul>
         </div>
       ))}
-      <button type="button" onClick={signOut} className={cn(ITEM, "text-sidebar-foreground hover:bg-black/[0.035] hover:text-foreground")}>
-        <LogOut className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
-        Sign out
-      </button>
     </nav>
+  );
+}
+
+export function SignOutButton() {
+  const signOut = useSignOut();
+  return (
+    <button type="button" onClick={signOut} className={cn(ITEM, "text-red-600 hover:bg-red-50 hover:text-red-700")}>
+      <LogOut className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
+      Sign out
+    </button>
   );
 }

@@ -15,7 +15,7 @@ import type { Role } from "@/lib/types";
 
 import { Brand } from "./brand";
 import { PageSearch } from "./page-search";
-import { SidebarNav } from "./sidebar-nav";
+import { SidebarNav, SignOutButton } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 
 export function AppShell({ role, children }: { role: Role; children: React.ReactNode }) {
@@ -46,6 +46,9 @@ export function AppShell({ role, children }: { role: Role; children: React.React
         <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
           <SidebarNav role={role} />
         </div>
+        <div className="shrink-0 border-t px-4 py-4">
+          <SignOutButton />
+        </div>
       </aside>
 
       <div className="flex min-h-screen flex-col">
@@ -61,8 +64,11 @@ export function AppShell({ role, children }: { role: Role; children: React.React
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
                 <Brand />
               </SheetHeader>
-              <div className="overflow-y-auto px-4 pb-6">
+              <div className="flex-1 overflow-y-auto px-4 pb-6">
                 <SidebarNav role={role} onNavigate={() => setMenuOpen(false)} />
+              </div>
+              <div className="shrink-0 border-t px-4 py-4">
+                <SignOutButton />
               </div>
             </SheetContent>
           </Sheet>
