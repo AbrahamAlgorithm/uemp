@@ -8,9 +8,11 @@ FROM node:24-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Rewrites are resolved at build time in standalone mode, so the API origin is baked in here.
+# next bakes both into the build
 ARG API_URL
+ARG NEXT_PUBLIC_USE_MOCKS=false
 ENV API_URL=${API_URL} \
+    NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS} \
     NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
