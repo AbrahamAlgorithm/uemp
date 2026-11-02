@@ -1,5 +1,6 @@
 "use client";
 
+import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,9 +9,14 @@ import type { Role } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { NAVIGATION } from "./navigation";
+import { useSignOut } from "./use-sign-out";
+
+const ITEM =
+  "flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-[15px] transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none";
 
 export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () => void }) {
   const pathname = usePathname();
+  const signOut = useSignOut();
   const home = ROLE_HOME[role];
 
   const isActive = (href: string) =>
@@ -20,12 +26,8 @@ export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () =
     <nav aria-label="Main" className="space-y-5">
       {NAVIGATION[role].map((group, index) => (
         <div key={group.label ?? index}>
-          {group.label && (
-            <p className="mb-1.5 px-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-              {group.label}
-            </p>
-          )}
-          <ul className="space-y-0.5">
+          {group.label && <p className="mb-1.5 px-4 text-xs text-muted-foreground">{group.label}</p>}
+          <ul className="space-y-1">
             {group.items.map((item) => {
               const active = isActive(item.href);
               return (
@@ -35,13 +37,13 @@ export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () =
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
+                      ITEM,
                       active
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-muted hover:text-foreground",
+                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[0_1px_3px_rgb(0_0_0/0.06)] ring-1 ring-sidebar-border"
+                        : "text-sidebar-foreground hover:bg-black/[0.035] hover:text-foreground",
                     )}
                   >
-                    <item.icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                    <item.icon className="size-[18px] shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
                     {item.label}
                   </Link>
                 </li>
@@ -50,6 +52,10 @@ export function SidebarNav({ role, onNavigate }: { role: Role; onNavigate?: () =
           </ul>
         </div>
       ))}
+      <button type="button" onClick={signOut} className={cn(ITEM, "text-sidebar-foreground hover:bg-black/[0.035] hover:text-foreground")}>
+        <LogOut className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
+        Sign out
+      </button>
     </nav>
   );
 }

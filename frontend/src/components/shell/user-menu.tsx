@@ -2,12 +2,8 @@
 
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
-import { useSession } from "@/components/session-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,47 +12,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { errorMessage } from "@/lib/api";
 import { ROLE_LABELS } from "@/lib/constants";
 import { initials } from "@/lib/format";
 import type { SessionUser } from "@/lib/types";
 
 import { PROFILE_PATH } from "./navigation";
+import { useSignOut } from "./use-sign-out";
 
 export function UserMenu({ user }: { user: SessionUser }) {
-  const { signOut } = useSession();
-  const router = useRouter();
+  const signOut = useSignOut();
   const profile = PROFILE_PATH[user.role];
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.replace("/login");
-    } catch (error) {
-      toast.error(errorMessage(error));
-    }
-  };
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-10 gap-2.5 px-2">
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-accent text-xs font-medium text-accent-foreground">
-              {initials(user.fullName)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="hidden text-left leading-tight sm:block">
-            <span className="block text-sm font-medium">{user.fullName}</span>
-            <span className="block text-xs text-muted-foreground">
-              {ROLE_LABELS[user.role]}
-              {user.department && ` · ${user.department.code}`}
-            </span>
+      <DropdownMenuTrigger className="flex items-center gap-2 rounded-full p-0.5 pr-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <Avatar className="size-10">
+          <AvatarFallback className="bg-primary text-sm font-medium text-primary-foreground">{initials(user.fullName)}</AvatarFallback>
+        </Avatar>
+        <span className="hidden text-left leading-tight xl:block">
+          <span className="block text-sm font-medium">{user.fullName}</span>
+          <span className="block text-xs text-muted-foreground">
+            {ROLE_LABELS[user.role]}
+            {user.department && ` · ${user.department.code}`}
           </span>
-          <ChevronDown className="hidden size-4 text-muted-foreground sm:block" />
-        </Button>
+        </span>
+        <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+        <span className="sr-only">Account menu</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="font-normal">
           <p className="text-sm font-medium">{user.fullName}</p>
           <p className="truncate text-xs text-muted-foreground">{user.email}</p>
@@ -70,7 +53,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
             </Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={handleSignOut}>
+        <DropdownMenuItem onSelect={signOut}>
           <LogOut />
           Sign out
         </DropdownMenuItem>
