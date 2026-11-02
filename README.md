@@ -1,13 +1,13 @@
 # UEMP: University Education Management Portal
 
-UEMP is a web portal for running a university's academic records: students register for courses, lecturers enter results, departments review and approve them, and administrators manage the whole process. Each of those roles gets its own area. This repository is a monorepo with a Django REST API and a Next.js frontend, deployed as two Google Cloud Run services backed by Cloud SQL for PostgreSQL. It is currently a skeleton: structure, configuration and an end-to-end health check, with no features yet.
+UEMP is a web portal for running a university's academic records: students register for courses, lecturers enter results, departments review and approve them, and administrators manage the whole process. Each of those roles gets its own area. This repository is a monorepo with a Django REST API and a Next.js frontend, deployed as two Google Cloud Run services backed by Cloud SQL for PostgreSQL. The frontend for all four roles is built and currently runs on in-browser mock data behind a single API layer; the Django endpoints are next.
 
 ## Stack
 
 | Layer    | Technology                                                                |
 | -------- | ------------------------------------------------------------------------- |
 | Backend  | Python 3.12, Django 5.2 LTS, Django REST Framework, drf-spectacular        |
-| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS                         |
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Hook Form + Zod, TanStack Table |
 | Database | PostgreSQL 16                                                             |
 | Auth     | Custom email-based `User` model, Argon2 password hashing                  |
 | Hosting  | Google Cloud Run (`uemp-api`, `uemp-web`) + Cloud SQL for PostgreSQL       |
@@ -30,10 +30,12 @@ uemp/
 │   └── tests/
 └── frontend/                 # Next.js app
     └── src/
-        ├── app/              # /, /login, /student, /lecturer, /department, /admin
-        ├── components/
+        ├── app/              # /login, /forbidden and the /student, /lecturer,
+        │                     # /department and /admin areas
+        ├── components/       # app shell, data table, dialogs, badges, ui/ (shadcn)
         ├── hooks/
-        ├── lib/api.ts        # fetch wrapper for /api/*
+        ├── lib/api/          # one function per operation, mock or real
+        ├── lib/mock/         # seed data and mock handlers
         └── middleware.ts     # pass-through; role redirects later
 ```
 
@@ -50,7 +52,7 @@ docker compose up --build
 
 | URL                              | What                                   |
 | -------------------------------- | -------------------------------------- |
-| http://localhost:3000            | Web app (shows API and DB health)      |
+| http://localhost:3000            | Web app (sign in with a demo account)  |
 | http://localhost:8000/api/docs/  | Swagger UI                             |
 | http://localhost:8000/api/schema/| OpenAPI schema                         |
 | http://localhost:8000/api/health/| Health check                           |
@@ -63,6 +65,10 @@ Create an admin user:
 ```bash
 docker compose exec api python manage.py createsuperuser
 ```
+
+### Mock data
+
+With `NEXT_PUBLIC_USE_MOCKS=true` (the default in compose and `npm run dev`) the UI reads and writes an in-browser copy of the seed data in `frontend/src/lib/mock`, so changes last until the page is reloaded. Pages only import from `lib/api`; `lib/api/remote.ts` lists the endpoints the UI expects, and setting the flag to `false` switches every page to them.
 
 ### Backend tests
 
@@ -88,20 +94,20 @@ npm run build
 
 ## Live URLs
 
-<!-- TODO -->
-
 ## Test Credentials
 
-<!-- TODO -->
+Demo accounts while mock data is on. The password for all of them is `password123`.
+
+| Role             | Email                                      |
+| ---------------- | ------------------------------------------ |
+| Student          | chiamaka.okafor@student.crestview.edu.ng   |
+| Lecturer         | a.ogunleye@crestview.edu.ng                |
+| Department admin | csc.admin@crestview.edu.ng                 |
+| Super admin      | registry@crestview.edu.ng                  |
 
 ## Architecture
 
-<!-- TODO: see docs/architecture.md -->
-
 ## Database Design
-
-<!-- TODO: see docs/database.md -->
 
 ## Deployment
 
-<!-- TODO: see infra/deploy.sh -->
