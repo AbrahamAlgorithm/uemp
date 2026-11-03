@@ -3,9 +3,11 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.accounts.urls import management_urlpatterns as account_management_urlpatterns
-from core.views import health
+from core.views import health, index
 
 urlpatterns = [
+    path("", index, name="index"),
+    path("api/", index, name="api-index"),
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/auth/", include("apps.accounts.urls")),

@@ -9,7 +9,7 @@ Web portal for university academic records: students register for courses, depar
 | What | Link |
 | --- | --- |
 | Frontend | https://uemp.abrahamalgorithm.tech |
-| API | https://uemp-web-taqq76r7ua-ew.a.run.app |
+| Frontend (Cloud Run) | https://uemp-web-taqq76r7ua-ew.a.run.app |
 | API docs | https://uemp-api-taqq76r7ua-ew.a.run.app/api/docs/ |
 | Source | https://github.com/AbrahamAlgorithm/uemp |
 
@@ -96,7 +96,7 @@ Postgres is on port 5433. Demo accounts use `SEED_PASSWORD` (default `Demo@2026`
 
 ```bash
 cd backend && pip install -r requirements.txt
-pytest --cov                                        # 317 tests, 97% coverage
+pytest --cov                                        # 320 tests, 97% coverage
 
 cd ../frontend && npm ci
 npx tsc --noEmit && npm run lint && npm run build
