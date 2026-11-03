@@ -1,4 +1,4 @@
-import { actAsDemoUser, mockApi } from "../mock";
+import { actAsDemoUser, mockApi, type RegistrationKey, type ResultKey } from "../mock";
 import { remoteApi, type Api } from "./remote";
 
 export const usingMocks = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
@@ -53,6 +53,35 @@ const managementApi: Partial<Api> = {
   changePassword: remoteApi.changePassword,
 };
 
-export const api: Api = usingMocks ? { ...mockApi, ...realAuth, ...managementApi } : remoteApi;
+const registrationApi: Pick<Api, RegistrationKey> = {
+  getRegistration: remoteApi.getRegistration,
+  submitRegistration: remoteApi.submitRegistration,
+  getRegistrationSlip: remoteApi.getRegistrationSlip,
+  getRegistrationForms: remoteApi.getRegistrationForms,
+  getRegistrationForm: remoteApi.getRegistrationForm,
+  validateRegistrationForm: remoteApi.validateRegistrationForm,
+  returnRegistrationForm: remoteApi.returnRegistrationForm,
+  getOfferings: remoteApi.getOfferings,
+  getOfferingRegistrations: remoteApi.getOfferingRegistrations,
+  setRegistrationOpen: remoteApi.setRegistrationOpen,
+};
+
+const resultApi: Pick<Api, ResultKey> = {
+  getMyOfferings: remoteApi.getMyOfferings,
+  getLecturerSheet: remoteApi.getLecturerSheet,
+  saveScores: remoteApi.saveScores,
+  submitSheet: remoteApi.submitSheet,
+  getMySubmissions: remoteApi.getMySubmissions,
+  getResultSheets: remoteApi.getResultSheets,
+  getResultSheet: remoteApi.getResultSheet,
+  approveSheet: remoteApi.approveSheet,
+  rejectSheet: remoteApi.rejectSheet,
+  reopenSheet: remoteApi.reopenSheet,
+  getMyResults: remoteApi.getMyResults,
+  getGradeScale: remoteApi.getGradeScale,
+  updateGradeScale: remoteApi.updateGradeScale,
+};
+
+export const api: Api = usingMocks ? { ...mockApi, ...realAuth, ...managementApi, ...registrationApi, ...resultApi } : remoteApi;
 
 export { ApiError, errorMessage } from "./http";

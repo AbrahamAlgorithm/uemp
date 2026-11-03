@@ -1,6 +1,6 @@
 import { summarise } from "../../grading";
 import type { CourseInput, LecturerInput, ProgramInput, StudentInput } from "../../schemas";
-import type { CourseAllocation, DepartmentDashboard, DepartmentReport, Level, Program, Registration } from "../../types";
+import type { CourseAllocation, DepartmentDashboard, DepartmentReport, Level, Program } from "../../types";
 import { db, nextId } from "../db";
 import type { CourseRow, ProgramRow, UserRow } from "../seed";
 import { departmentScope, fail, inScope, logAudit, now, requireRole, sleep } from "../session";
@@ -341,35 +341,6 @@ export const departmentHandlers = {
     }
     logAudit(user, "ASSIGN_LECTURER", `${course.code} ${course.title}`, `Assigned ${displayName(lecturer)}`, course.departmentId);
     return allocationView(course, semester.id);
-  },
-
-  async getRegistrations(): Promise<Registration[]> {
-    await sleep();
-    const { scope } = manager();
-    const semester = currentSemesterRow();
-    return db.registrations
-      .filter((row) => row.semesterId === semester.id)
-      .map((row) => ({ row, course: findCourse(row.courseId)!, student: findStudent(row.studentId)! }))
-      .filter(
-        ({ course, student }) =>
-          inScope(scope, course.departmentId) || inScope(scope, programDepartment(student.programId)),
-      )
-      .map(({ row, course, student }) => {
-        const user = findUser(student.userId)!;
-        return {
-          id: row.id,
-          student: {
-            id: user.id,
-            fullName: displayName(user),
-            matricNumber: student.matricNumber,
-            level: student.level as Level,
-            program: db.programs.find((program) => program.id === student.programId)!.name,
-          },
-          course: { ...courseSummary(course), department: departmentRef(course.departmentId) },
-          semester: semesterView(semester.id),
-          registeredAt: row.registeredAt,
-        };
-      });
   },
 
   async getDepartmentReport(): Promise<DepartmentReport> {

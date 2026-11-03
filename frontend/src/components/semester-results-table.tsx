@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { formatGpa } from "@/lib/grading";
 import type { SemesterResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -21,12 +22,22 @@ export function SemesterResultsTable({ result, compact }: { result: SemesterResu
         </thead>
         <tbody>
           {result.courses.map((course) => (
-            <tr key={course.id} className="border-b">
-              <td className={cn(cell, "font-medium whitespace-nowrap")}>{course.code}</td>
+            <tr key={course.registrationId} className="border-b">
+              <td className={cn(cell, "font-medium whitespace-nowrap")}>
+                {course.code}
+                {course.isCarryOver &&
+                  (compact ? (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">(carry-over)</span>
+                  ) : (
+                    <Badge variant="outline" className="ml-2 border-orange-300 bg-orange-50 text-orange-700">
+                      Carry-over
+                    </Badge>
+                  ))}
+              </td>
               <td className={cn(cell, "min-w-48")}>{course.title}</td>
               <td className={cn(cell, "text-right tabular-nums")}>{course.units}</td>
-              <td className={cn(cell, "text-right tabular-nums")}>{course.ca}</td>
-              <td className={cn(cell, "text-right tabular-nums")}>{course.exam}</td>
+              <td className={cn(cell, "text-right tabular-nums")}>{course.ca ?? "—"}</td>
+              <td className={cn(cell, "text-right tabular-nums")}>{course.exam ?? "—"}</td>
               <td className={cn(cell, "text-right font-medium tabular-nums")}>{course.total}</td>
               <td className={cn(cell, "text-center font-semibold", course.grade === "F" && "text-destructive")}>{course.grade}</td>
               <td className={cn(cell, "text-right tabular-nums")}>{course.gradePoint}</td>
@@ -39,9 +50,7 @@ export function SemesterResultsTable({ result, compact }: { result: SemesterResu
               Semester GPA <span className="font-semibold">{formatGpa(result.gpa)}</span>
             </td>
             <td className={cn(cell, "text-right font-medium tabular-nums")}>{result.units}</td>
-            <td colSpan={5} className={cn(cell, "text-right text-muted-foreground")}>
-              CGPA to date <span className="font-semibold text-foreground">{formatGpa(result.cgpa)}</span>
-            </td>
+            <td colSpan={5} />
           </tr>
         </tfoot>
       </table>

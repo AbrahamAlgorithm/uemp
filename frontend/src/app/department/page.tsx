@@ -78,7 +78,7 @@ export default function DepartmentDashboardPage() {
                         {sheet.course.code} <span className="font-normal text-muted-foreground">{sheet.course.title}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {sheet.lecturer.name} · {sheet.studentCount} students · submitted {formatDateTime(sheet.submittedAt)}
+                        {sheet.lecturer?.name ?? "No lecturer"} · {sheet.studentCount} students · submitted {formatDateTime(sheet.submittedAt)}
                       </p>
                     </div>
                     <Button size="sm" asChild>

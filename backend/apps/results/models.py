@@ -53,6 +53,10 @@ class ResultSheet(TimeStampedModel):
     def __str__(self):
         return f"{self.offering} [{self.status}]"
 
+    @property
+    def department(self):
+        return self.offering.course.department
+
 
 class ResultEntry(TimeStampedModel):
     registration = models.OneToOneField(

@@ -1,13 +1,12 @@
 import { LEVELS, ROLE_LABELS, USER_STATUS_LABELS } from "../../constants";
 import { formatDate } from "../../format";
 import { summarise } from "../../grading";
-import { gradeScaleSchema, type DepartmentInput, type FacultyInput, type SessionInput, type UserRoleInput } from "../../schemas";
+import { type DepartmentInput, type FacultyInput, type SessionInput, type UserRoleInput } from "../../schemas";
 import type {
   AcademicSession,
   AdminDashboard,
   Department,
   Faculty,
-  GradeBand,
   SheetStatus,
   UniversityReport,
   UserDetail,
@@ -15,9 +14,10 @@ import type {
 } from "../../types";
 import { db, nextId } from "../db";
 import type { DepartmentRow, FacultyRow, SessionRow } from "../seed";
-import { currentUser, fail, logAudit, requireRole, sleep } from "../session";
+import { fail, logAudit, requireRole, sleep } from "../session";
 import {
   auditView,
+  cgpaOf,
   currentSemesterRow,
   departmentRef,
   displayName,
@@ -31,7 +31,6 @@ import {
   sheetEntries,
   sheetSummary,
   staffView,
-  studentResults,
   studentView,
   userAccountView,
 } from "../views";
@@ -256,7 +255,7 @@ export const adminHandlers = {
       semester: semesterView(semester.id),
       departments: db.departments.map((department) => {
         const students = studentsIn(department.id);
-        const cgpas = students.map((row) => studentResults(row.userId).cgpa).filter((value): value is number => value !== null);
+        const cgpas = students.map((row) => cgpaOf(row.userId)).filter((value): value is number => value !== null);
         const approved = db.sheets
           .filter(
             (sheet) =>
@@ -286,21 +285,5 @@ export const adminHandlers = {
     await sleep();
     requireRole("SUPER_ADMIN");
     return db.audit.map(auditView);
-  },
-
-  async getGradeScale() {
-    await sleep(80);
-    currentUser();
-    return structuredClone(db.gradeScale);
-  },
-
-  async updateGradeScale(bands: GradeBand[]) {
-    await sleep();
-    const admin = requireRole("SUPER_ADMIN");
-    const parsed = gradeScaleSchema.safeParse({ bands });
-    if (!parsed.success) fail(400, parsed.error.issues[0]?.message ?? "The grade scale is invalid.");
-    db.gradeScale = structuredClone(parsed.data.bands);
-    logAudit(admin, "UPDATE_GRADE_SCALE", "Grade scale", bands.map((band) => `${band.grade} ${band.min}-${band.max}`).join(", "), null);
-    return structuredClone(db.gradeScale);
   },
 };

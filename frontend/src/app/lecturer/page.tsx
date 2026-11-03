@@ -20,7 +20,7 @@ const needsAction = (course: LecturerCourse) => course.sheetStatus === "DRAFT" |
 
 export default function LecturerDashboardPage() {
   const { user } = useSession();
-  const { data, error, reload } = useAsync(api.getMyAllocations);
+  const { data, error, reload } = useAsync(() => api.getMyOfferings());
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton cards={4} rows={5} />;
@@ -40,9 +40,9 @@ export default function LecturerDashboardPage() {
           <AlertDescription>
             <p>
               {rejected.map((course, index) => (
-                <span key={course.allocationId}>
+                <span key={course.offeringId}>
                   {index > 0 && ", "}
-                  <Link href={`/lecturer/courses/${course.allocationId}/scores`} className="font-medium underline underline-offset-2">
+                  <Link href={`/lecturer/courses/${course.offeringId}/scores`} className="font-medium underline underline-offset-2">
                     {course.course.code}
                   </Link>
                 </span>
@@ -80,8 +80,7 @@ export default function LecturerDashboardPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Course</TableHead>
-                <TableHead className="text-right">Students</TableHead>
-                <TableHead className="text-right">Scored</TableHead>
+                <TableHead className="text-right">Progress</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -90,21 +89,20 @@ export default function LecturerDashboardPage() {
             </TableHeader>
             <TableBody>
               {data.map((course) => (
-                <TableRow key={course.allocationId}>
+                <TableRow key={course.offeringId}>
                   <TableCell className="min-w-56">
                     <p className="font-medium">{course.course.code}</p>
                     <p className="text-xs text-muted-foreground">{course.course.title}</p>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{course.studentCount}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {course.scoredCount}/{course.studentCount}
+                  <TableCell className="text-right whitespace-nowrap tabular-nums">
+                    {course.scoredCount} of {course.studentCount} scored
                   </TableCell>
                   <TableCell>
                     <SheetStatusBadge status={course.sheetStatus} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant={needsAction(course) ? "default" : "outline"} asChild>
-                      <Link href={`/lecturer/courses/${course.allocationId}/scores`}>
+                      <Link href={`/lecturer/courses/${course.offeringId}/scores`}>
                         {needsAction(course) ? "Enter scores" : "View scores"}
                       </Link>
                     </Button>

@@ -4,19 +4,24 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDateTime } from "@/lib/format";
 import type { ResultSheetSummary } from "@/lib/types";
 
+const by = (person: { name: string } | null) => (person ? ` by ${person.name}` : "");
+
 export function SheetBanner({ sheet, audience }: { sheet: ResultSheetSummary; audience: "lecturer" | "reviewer" }) {
   if (sheet.status === "REJECTED") {
     return (
       <Banner tone="red" icon={TriangleAlert} title="Returned for corrections">
         {sheet.feedback}
-        <span className="mt-1 block text-xs opacity-80">Reviewed {formatDateTime(sheet.reviewedAt)}</span>
+        <span className="mt-1 block text-xs opacity-80">
+          Returned{by(sheet.reviewedBy)} {formatDateTime(sheet.reviewedAt)}
+          {audience === "lecturer" && ". Fix the scores and submit again."}
+        </span>
       </Banner>
     );
   }
   if (sheet.status === "SUBMITTED") {
     return (
       <Banner tone="sky" icon={Clock} title="Awaiting departmental approval">
-        Submitted {formatDateTime(sheet.submittedAt)}.
+        Submitted{by(sheet.submittedBy)} {formatDateTime(sheet.submittedAt)}.
         {audience === "lecturer" && " Scores are read-only while the department reviews them."}
       </Banner>
     );
@@ -24,7 +29,8 @@ export function SheetBanner({ sheet, audience }: { sheet: ResultSheetSummary; au
   if (sheet.status === "APPROVED") {
     return (
       <Banner tone="emerald" icon={CircleCheck} title="Approved">
-        Approved {formatDateTime(sheet.reviewedAt)}. These results are visible to students.
+        Approved{by(sheet.reviewedBy)} {formatDateTime(sheet.reviewedAt)}. These results are visible to students
+        {audience === "lecturer" ? " and can only change if the department reopens them." : "."}
       </Banner>
     );
   }
@@ -32,6 +38,7 @@ export function SheetBanner({ sheet, audience }: { sheet: ResultSheetSummary; au
     return (
       <Banner tone="amber" icon={RotateCcw} title="Reopened by the department">
         {sheet.feedback}
+        <span className="mt-1 block text-xs opacity-80">Students can&apos;t see these results until they&apos;re approved again.</span>
       </Banner>
     );
   }

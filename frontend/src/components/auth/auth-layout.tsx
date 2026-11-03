@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 
 import { Brand } from "@/components/shell/brand";
-import { UNIVERSITY_NAME } from "@/lib/constants";
 
 interface AuthLayoutProps {
   image: { src: string; alt: string };
@@ -11,54 +10,26 @@ interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
-export function AuthLayout({ image, headline, points, children }: AuthLayoutProps) {
+export function AuthLayout({ image, children }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-screen gap-3 bg-background p-3">
-      <div className="flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col px-1 py-3 sm:px-8 sm:py-5 xl:px-14">
-        <header>
-          <Brand />
-        </header>
-        <main className="flex flex-1 items-center justify-center py-12">
-          <div className="w-full max-w-[400px]">{children}</div>
-        </main>
-        <footer className="text-xs text-muted-foreground sm:text-right">
-          © {new Date().getFullYear()} {UNIVERSITY_NAME}
-        </footer>
-      </div>
-
-      <aside className="sticky top-3 hidden h-[calc(100vh-1.5rem)] w-[46%] max-w-[760px] flex-col overflow-hidden rounded-3xl bg-neutral-950 p-3 text-white lg:flex">
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl">
-          <Image src={image.src} alt={image.alt} fill priority sizes="46vw" className="object-cover" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-950 px-4 py-8 font-manrope sm:px-6">
+      <Image src={image.src} alt="" fill priority sizes="100vw" className="object-cover" />
+      <div className="absolute inset-0 bg-[rgba(131,132,136,0.68)]" aria-hidden="true" />
+      <section className="relative z-10 w-full max-w-[440px] overflow-hidden rounded-md bg-white shadow-2xl">
+        <div className="border-b border-slate-100 px-6 pb-3 pt-5 sm:px-8">
+          <Brand className="justify-center" vertical />
         </div>
-        <div className="px-6 pt-8 pb-6 xl:px-8">
-          <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-balance">{headline}</h2>
-          <ul className="mt-6 space-y-4">
-            {points.map((point) => (
-              <li key={point.title} className="flex gap-3.5">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                  <point.icon className="size-[18px]" aria-hidden />
-                </span>
-                <div>
-                  <p className="text-sm font-medium">{point.title}</p>
-                  <p className="text-sm text-white/60">{point.description}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </aside>
-    </div>
+        <div className="px-6 pb-7 pt-4 sm:px-8 sm:pb-8 sm:pt-5">{children}</div>
+      </section>
+    </main>
   );
 }
 
-export function AuthHeading({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: React.ReactNode }) {
+export function AuthHeading({ title, description }: { title: string; description?: React.ReactNode }) {
   return (
-    <div>
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-muted">
-        <Icon className="size-6" aria-hidden />
-      </span>
-      <h1 className="mt-7 text-[32px] leading-tight font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 text-[15px] text-muted-foreground">{description}</p>
+    <div className="text-center">
+      <h1 className="text-[28px] leading-[36px] font-medium tracking-[-0.56px] text-slate-900">{title}</h1>
+      {description && <p className="mt-2 text-[15px] text-muted-foreground">{description}</p>}
     </div>
   );
 }

@@ -14,7 +14,7 @@ import { api } from "@/lib/api";
 import { semesterLabel } from "@/lib/format";
 
 export default function LecturerCoursesPage() {
-  const { data, error, reload } = useAsync(api.getMyAllocations);
+  const { data, error, reload } = useAsync(() => api.getMyOfferings());
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton rows={4} />;
@@ -34,7 +34,7 @@ export default function LecturerCoursesPage() {
           {data.map((course) => {
             const editable = course.sheetStatus === "DRAFT" || course.sheetStatus === "REJECTED";
             return (
-              <Card key={course.allocationId}>
+              <Card key={course.offeringId}>
                 <CardHeader>
                   <CardDescription className="flex items-center justify-between gap-2">
                     <span className="font-medium text-primary">{course.course.code}</span>
@@ -55,7 +55,7 @@ export default function LecturerCoursesPage() {
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Scores entered</span>
                       <span className="tabular-nums">
-                        {course.scoredCount}/{course.studentCount}
+                        {course.scoredCount} of {course.studentCount} scored
                       </span>
                     </div>
                     <Progress
@@ -66,10 +66,10 @@ export default function LecturerCoursesPage() {
                 </CardContent>
                 <CardFooter className="gap-2">
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/lecturer/courses/${course.allocationId}`}>Class list</Link>
+                    <Link href={`/lecturer/courses/${course.offeringId}`}>Class list</Link>
                   </Button>
                   <Button size="sm" variant={editable ? "default" : "outline"} asChild>
-                    <Link href={`/lecturer/courses/${course.allocationId}/scores`}>{editable ? "Enter scores" : "View scores"}</Link>
+                    <Link href={`/lecturer/courses/${course.offeringId}/scores`}>{editable ? "Enter scores" : "View scores"}</Link>
                   </Button>
                 </CardFooter>
               </Card>

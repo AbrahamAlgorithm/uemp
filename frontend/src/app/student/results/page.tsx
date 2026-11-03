@@ -54,7 +54,13 @@ export default function StudentResultsPage() {
       />
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="CGPA" tone="blue" value={formatGpa(data.cgpa)} icon={GraduationCap} hint="On a 5.00 scale" />
-        <StatCard label="Units completed" tone="green" value={data.totalUnits} icon={BookCheck} />
+        <StatCard
+          label="Units passed"
+          tone="green"
+          value={data.unitsPassed}
+          icon={BookCheck}
+          hint={`Of ${data.unitsAttempted} attempted, retakes counted each time`}
+        />
         <StatCard label="Semesters" tone="violet" value={data.semesters.length} icon={CalendarCheck} hint="With approved results" />
       </div>
 
@@ -70,7 +76,6 @@ export default function StudentResultsPage() {
               <TableHead className="text-right">Courses</TableHead>
               <TableHead className="text-right">Units</TableHead>
               <TableHead className="text-right">GPA</TableHead>
-              <TableHead className="text-right">CGPA</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -80,8 +85,7 @@ export default function StudentResultsPage() {
                 <TableCell>{SEMESTER_LABELS[result.semester.name]}</TableCell>
                 <TableCell className="text-right tabular-nums">{result.courses.length}</TableCell>
                 <TableCell className="text-right tabular-nums">{result.units}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatGpa(result.gpa)}</TableCell>
-                <TableCell className="text-right font-medium tabular-nums">{formatGpa(result.cgpa)}</TableCell>
+                <TableCell className="text-right font-medium tabular-nums">{formatGpa(result.gpa)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -94,7 +98,8 @@ export default function StudentResultsPage() {
             <CardHeader>
               <CardTitle>{semesterLabel(result.semester)}</CardTitle>
               <CardDescription>
-                {result.courses.length} {result.courses.length === 1 ? "course" : "courses"} · GPA {formatGpa(result.gpa)}
+                {result.courses.length} {result.courses.length === 1 ? "course" : "courses"} · {result.units} units · GPA{" "}
+                {formatGpa(result.gpa)}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0">

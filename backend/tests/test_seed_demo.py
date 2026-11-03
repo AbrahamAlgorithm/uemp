@@ -5,6 +5,7 @@ from django.core.management import call_command
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
 from apps.accounts.models import StaffProfile, StudentProfile, User
+from apps.audit.models import AuditLog
 from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import CourseRegistration, SemesterRegistration
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
@@ -26,6 +27,7 @@ SEEDED_MODELS = [
     GradeScale,
     ResultSheet,
     ResultEntry,
+    AuditLog,
 ]
 
 
@@ -130,3 +132,23 @@ def test_current_forms_cover_every_status_and_sheets_only_hold_validated_student
     assert statuses == set(SemesterRegistration.Status.values)
     assert not ResultEntry.objects.exclude(registration__semester_registration__status="VALIDATED").exists()
     assert not SemesterRegistration.objects.exclude(semester=current).exclude(status="VALIDATED").exists()
+
+
+def test_sheets_have_audit_history_matching_their_state():
+    seed()
+
+    for sheet in ResultSheet.objects.select_related("offering__course"):
+        rows = AuditLog.objects.filter(entity_type="results.resultsheet", entity_id=str(sheet.pk)).order_by("created_at")
+        history = [(row.action, row.created_at, row.actor) for row in rows]
+        submitted = ("RESULTS_SUBMITTED", sheet.submitted_at, sheet.submitted_by)
+        expected = {
+            "DRAFT": [],
+            "SUBMITTED": [submitted],
+            "APPROVED": [submitted, ("RESULTS_APPROVED", sheet.reviewed_at, sheet.reviewed_by)],
+            "REJECTED": [submitted, ("RESULTS_REJECTED", sheet.reviewed_at, sheet.reviewed_by)],
+        }[sheet.status]
+        assert history == expected, sheet.offering.course.code
+        if sheet.status == "REJECTED":
+            assert rows.last().after["feedback"] == sheet.feedback != ""
+        for _, at, _ in history:
+            assert at.weekday() < 5 and 9 <= at.hour < 18

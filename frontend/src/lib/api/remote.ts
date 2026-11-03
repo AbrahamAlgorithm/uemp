@@ -17,27 +17,41 @@ import type {
   AuditEntry,
   Course,
   CourseAllocation,
+  CourseResult,
+  CourseSummary,
   Department,
   DepartmentDashboard,
   DepartmentReport,
   Faculty,
+  Grade,
   GradeBand,
+  GradeDistribution,
   Lecturer,
   LecturerCourse,
   Level,
-  MyCourses,
   Program,
-  Registration,
-  RegistrationOptions,
+  OfferingRegistration,
+  RegistrationCourse,
+  RegistrationForm,
+  RegistrationFormStatus,
+  RegistrationFormSummary,
+  RegistrationStudent,
+  ResultEntry,
   ResultSheet,
   ResultSheetSummary,
+  ResultSubmission,
   Role,
   ScoreInput,
   Semester,
   SessionUser,
+  SheetAction,
+  SheetEvent,
+  SheetStats,
+  SheetStatus,
   StaffProfile,
   Student,
   StudentDashboard,
+  StudentRegistration,
   StudentResults,
   UniversityReport,
   UserAccount,
@@ -50,6 +64,17 @@ const get = <T>(path: string) => request<T>(path);
 const getList = async <T>(path: string): Promise<T[]> => {
   const data = await request<T[] | { results: T[] }>(path);
   return Array.isArray(data) ? data : data.results;
+};
+// asks for page numbers rather than following "next", which drf builds on the api's own host
+const getAll = async <T>(path: string): Promise<T[]> => {
+  const rows: T[] = [];
+  for (let page = 1; ; page += 1) {
+    const data = await request<{ results: T[]; next: string | null }>(
+      `${path}${path.includes("?") ? "&" : "?"}page_size=100&page=${page}`,
+    );
+    rows.push(...data.results);
+    if (!data.next) return rows;
+  }
 };
 const post = <T>(path: string, json?: unknown) => request<T>(path, { method: "POST", json });
 const patch = <T>(path: string, json: unknown) => request<T>(path, { method: "PATCH", json });
@@ -83,8 +108,14 @@ const ref = (value: unknown) => {
   return { id: Number(item.id), name: String(item.name ?? ""), code: String(item.code ?? "") };
 };
 const mapSemester = (item: Raw): Semester => {
-  const session = (item.session_detail ?? {}) as Raw;
-  return { id: Number(item.id), name: String(item.term) as Semester["name"], isCurrent: Boolean(item.is_current), session: ref(session) };
+  const session = (item.session_detail ?? item.session ?? {}) as Raw;
+  return {
+    id: Number(item.id),
+    name: String(item.term) as Semester["name"],
+    isCurrent: Boolean(item.is_current),
+    registrationOpen: Boolean(item.registration_open),
+    session: ref(session),
+  };
 };
 const mapFaculty = (item: Raw): Faculty => ({
   id: Number(item.id), name: String(item.name), code: String(item.code),
@@ -160,6 +191,108 @@ const mapOffering = (item: Raw): CourseAllocation => {
     sheetStatus: item.sheet_status as CourseAllocation["sheetStatus"], studentCount: 0,
   };
 };
+const mapRegistrationStudent = (item: Raw): RegistrationStudent => ({
+  id: Number(item.id), fullName: String(item.name ?? ""), email: String(item.email ?? ""),
+  matricNumber: String(item.matric_no), level: Number(item.level) as Level,
+  program: { ...ref(item.program), award: String((item.program as Raw).award ?? "") },
+  department: ref(item.department) as RegistrationStudent["department"],
+  faculty: ref(item.faculty) as RegistrationStudent["faculty"],
+});
+const mapCourseLine = (item: Raw): RegistrationCourse => ({
+  offeringId: Number(item.offering_id), code: String(item.code), title: String(item.title), units: Number(item.units),
+  level: Number(item.level) as Level, lecturer: (item.lecturer as string | null) ?? null, isCarryOver: Boolean(item.is_carry_over),
+});
+const mapFormStatus = (item: Raw): RegistrationFormStatus => {
+  const validatedBy = item.validated_by as Raw | null;
+  return {
+    id: Number(item.id), status: item.status as RegistrationFormStatus["status"], submittedAt: String(item.submitted_at),
+    returnReason: String(item.return_reason ?? ""), validatedAt: (item.validated_at as string | null) ?? null,
+    validatedBy: validatedBy ? { id: Number(validatedBy.id), name: String(validatedBy.name) } : null,
+  };
+};
+const mapStudentRegistration = (item: Raw): StudentRegistration => ({
+  semester: mapSemester(item.semester as Raw), registrationOpen: Boolean(item.registration_open), maxUnits: Number(item.max_units),
+  registration: item.registration ? mapFormStatus(item.registration as Raw) : null,
+  courses: ((item.courses as Raw[]) ?? []).map((course) => ({ ...mapCourseLine(course), isSelected: Boolean(course.is_selected) })),
+});
+const mapForm = (item: Raw): RegistrationForm => ({
+  ...mapFormStatus(item), student: mapRegistrationStudent(item.student as Raw), semester: mapSemester(item.semester as Raw),
+  totalUnits: Number(item.total_units), courses: ((item.courses as Raw[]) ?? []).map(mapCourseLine),
+});
+const mapFormSummary = (item: Raw): RegistrationFormSummary => ({
+  id: Number(item.id), status: item.status as RegistrationFormSummary["status"], submittedAt: String(item.submitted_at),
+  validatedAt: (item.validated_at as string | null) ?? null, student: mapRegistrationStudent(item.student as Raw),
+  semester: mapSemester(item.semester as Raw), totalUnits: Number(item.total_units), courseCount: Number(item.course_count),
+});
+const mapOfferingRegistration = (item: Raw): OfferingRegistration => {
+  const offering = item.offering as Raw;
+  return {
+    id: Number(item.id), student: mapRegistrationStudent(item.student as Raw),
+    offering: { id: Number(offering.id), code: String(offering.code), title: String(offering.title), units: Number(offering.units) },
+    formId: Number(item.form_id), formStatus: item.form_status as OfferingRegistration["formStatus"],
+    registeredAt: String(item.registered_at),
+  };
+};
+const num = (value: unknown) => (value === null || value === undefined ? null : Number(value));
+const person = (value: unknown) => {
+  const item = value as Raw | null;
+  return item ? { id: Number(item.id), name: String(item.name) } : null;
+};
+const mapCourseRef = (item: Raw): CourseSummary => ({
+  id: Number(item.id), code: String(item.code), title: String(item.title), units: Number(item.units), level: Number(item.level) as Level,
+});
+const mapLecturerCourse = (item: Raw): LecturerCourse => ({
+  offeringId: Number(item.id), sheetId: Number(item.sheet_id), course: mapCourseRef(item.course as Raw),
+  semester: mapSemester(item.semester as Raw), sheetStatus: item.sheet_status as SheetStatus,
+  studentCount: Number(item.student_count), scoredCount: Number(item.scored_count),
+});
+const mapEntry = (item: Raw): ResultEntry => ({
+  registrationId: Number(item.registration_id), matricNumber: String(item.matric_no), studentName: String(item.name),
+  department: ref(item.department), isCarryOver: Boolean(item.is_carry_over), ca: num(item.ca_score), exam: num(item.exam_score),
+  total: num(item.total), grade: (item.grade as Grade | null) ?? null, gradePoint: num(item.grade_point),
+});
+const mapEvent = (item: Raw): SheetEvent => ({
+  at: String(item.at), action: item.action as SheetAction, actor: person(item.actor), note: (item.note as string) || null,
+});
+const mapSheetSummary = (item: Raw): ResultSheetSummary => ({
+  id: Number(item.id), offeringId: Number(item.offering_id), course: mapCourseRef(item.course as Raw), department: ref(item.department),
+  lecturer: person(item.lecturer), semester: mapSemester(item.semester as Raw), status: item.status as SheetStatus,
+  editable: Boolean(item.editable), feedback: (item.feedback as string) || null, submittedBy: person(item.submitted_by),
+  submittedAt: (item.submitted_at as string | null) ?? null, reviewedBy: person(item.reviewed_by),
+  reviewedAt: (item.reviewed_at as string | null) ?? null, studentCount: Number(item.student_count), scoredCount: Number(item.scored_count),
+});
+const mapSubmission = (item: Raw): ResultSubmission => ({
+  ...mapSheetSummary(item), timeline: ((item.timeline as Raw[]) ?? []).map(mapEvent),
+});
+const mapStats = (item: Raw): SheetStats => ({
+  students: Number(item.students), scored: Number(item.scored), incomplete: Number(item.incomplete), average: num(item.average),
+  highest: num(item.highest), lowest: num(item.lowest), passRate: num(item.pass_rate), distribution: item.distribution as GradeDistribution,
+});
+const mapSheet = (item: Raw): ResultSheet => ({
+  ...mapSubmission(item), entries: ((item.entries as Raw[]) ?? []).map(mapEntry), summary: mapStats(item.summary as Raw),
+});
+const mapCourseResult = (item: Raw): CourseResult => ({
+  registrationId: Number(item.registration_id), code: String(item.code), title: String(item.title), units: Number(item.units),
+  ca: num(item.ca), exam: num(item.exam), total: Number(item.total), grade: item.grade as Grade, gradePoint: Number(item.point),
+  isCarryOver: Boolean(item.is_carry_over),
+});
+const mapStudentResults = (item: Raw): StudentResults => ({
+  student: mapRegistrationStudent(item.student as Raw),
+  semesters: ((item.semesters as Raw[]) ?? []).map((result) => ({
+    semester: mapSemester(result.semester as Raw), courses: ((result.courses as Raw[]) ?? []).map(mapCourseResult),
+    units: Number(result.units), gpa: Number(result.gpa),
+  })),
+  cgpa: num(item.cgpa), unitsAttempted: Number(item.units_attempted), unitsPassed: Number(item.units_passed),
+});
+const mapGradeBand = (item: Raw): GradeBand => ({
+  grade: item.grade as Grade, min: Number(item.min), max: Number(item.max), point: Number(item.point),
+});
+// a field left out of the patch keeps its saved value, null clears it
+const toScoreInput = (score: ScoreInput) => ({
+  registration_id: score.registrationId,
+  ...(score.ca !== undefined ? { ca_score: score.ca } : {}),
+  ...(score.exam !== undefined ? { exam_score: score.exam } : {}),
+});
 const toStudentInput = (input: StudentInput) => ({
   first_name: input.firstName, last_name: input.lastName, email: input.email, matric_no: input.matricNumber,
   program: input.programId, level: input.level, gender: input.gender, phone: input.phone,
@@ -197,17 +330,27 @@ export const remoteApi = {
   getStudentDashboard: () => get<StudentDashboard>("student/dashboard/"),
   getStudentProfile: () => get<Student>("student/profile/"),
   updateStudentContact: (input: StudentContactInput) => patch<Student>("student/profile/", input),
-  getRegistrationOptions: () => get<RegistrationOptions>("student/registration/"),
-  registerCourses: (courseIds: number[]) => post<void>("student/registration/", { courseIds }),
-  getMyCourses: () => get<MyCourses>("student/courses/"),
-  getMyResults: () => get<StudentResults>("student/results/"),
+  getRegistration: async () => mapStudentRegistration(await get<Raw>("student/registration/")),
+  submitRegistration: async (offeringIds: number[]) =>
+    mapStudentRegistration(await put<Raw>("student/registration/", { offering_ids: offeringIds })),
+  getRegistrationSlip: async (): Promise<RegistrationForm | null> => {
+    try {
+      return mapForm(await get<Raw>("student/registration/slip/"));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  },
+  getMyResults: async () => mapStudentResults(await get<Raw>("student/results/")),
 
-  getMyAllocations: () => get<LecturerCourse[]>("lecturer/courses/"),
-  getLecturerCourse: (allocationId: number) =>
-    get<{ course: LecturerCourse; sheet: ResultSheet }>(`lecturer/courses/${allocationId}/`),
-  saveScores: (sheetId: number, scores: ScoreInput[]) => put<ResultSheet>(`result-sheets/${sheetId}/scores/`, { scores }),
-  submitSheet: (sheetId: number) => post<ResultSheet>(`result-sheets/${sheetId}/submit/`),
-  getMySubmissions: () => get<ResultSheetSummary[]>("lecturer/submissions/"),
+  getMyOfferings: async (semesterId?: number) =>
+    (await get<Raw[]>(`lecturer/offerings/${semesterId ? `?semester=${semesterId}` : ""}`)).map(mapLecturerCourse),
+  getLecturerSheet: async (offeringId: number) => mapSheet(await get<Raw>(`lecturer/offerings/${offeringId}/sheet/`)),
+  saveScores: async (offeringId: number, scores: ScoreInput[]) =>
+    mapSheet(await patch<Raw>(`lecturer/offerings/${offeringId}/sheet/entries/`, { entries: scores.map(toScoreInput) })),
+  submitSheet: async (offeringId: number, confirmIncomplete: boolean) =>
+    mapSheet(await post<Raw>(`lecturer/offerings/${offeringId}/sheet/submit/`, { confirm_incomplete: confirmIncomplete })),
+  getMySubmissions: async () => (await get<Raw[]>("lecturer/submissions/")).map(mapSubmission),
 
   getStaffProfile: () => get<StaffProfile>("staff/profile/"),
   updateStaffContact: (input: StaffContactInput) => patch<StaffProfile>("staff/profile/", input),
@@ -232,12 +375,20 @@ export const remoteApi = {
     if (!offering) throw new ApiError(404, { detail: "This course has no offering for the current semester." });
     return mapOffering(await patch<Raw>(`offerings/${Number(offering.id)}/`, { lecturer: lecturerId }));
   },
-  getRegistrations: () => get<Registration[]>("registrations/"),
-  getResultSheets: () => get<ResultSheetSummary[]>("result-sheets/"),
-  getResultSheet: (id: number) => get<ResultSheet>(`result-sheets/${id}/`),
-  approveSheet: (id: number) => post<ResultSheet>(`result-sheets/${id}/approve/`),
-  rejectSheet: (id: number, feedback: string) => post<ResultSheet>(`result-sheets/${id}/reject/`, { feedback }),
-  reopenSheet: (id: number, reason: string) => post<ResultSheet>(`result-sheets/${id}/reopen/`, { reason }),
+  getRegistrationForms: async (semesterId: number) =>
+    (await getAll<Raw>(`registration-forms/?semester=${semesterId}`)).map(mapFormSummary),
+  getRegistrationForm: async (id: number) => mapForm(await get<Raw>(`registration-forms/${id}/`)),
+  validateRegistrationForm: async (id: number) => mapForm(await post<Raw>(`registration-forms/${id}/validate/`)),
+  returnRegistrationForm: async (id: number, reason: string) =>
+    mapForm(await post<Raw>(`registration-forms/${id}/return/`, { reason })),
+  getOfferings: async (semesterId: number) => (await getAll<Raw>(`offerings/?semester=${semesterId}`)).map(mapOffering),
+  getOfferingRegistrations: async (offeringId: number) =>
+    (await getAll<Raw>(`registrations/?offering=${offeringId}`)).map(mapOfferingRegistration),
+  getResultSheets: async () => (await getAll<Raw>("result-sheets/")).map(mapSheetSummary),
+  getResultSheet: async (id: number) => mapSheet(await get<Raw>(`result-sheets/${id}/`)),
+  approveSheet: async (id: number) => mapSheet(await post<Raw>(`result-sheets/${id}/approve/`)),
+  rejectSheet: async (id: number, feedback: string) => mapSheet(await post<Raw>(`result-sheets/${id}/reject/`, { feedback })),
+  reopenSheet: async (id: number, reason: string) => mapSheet(await post<Raw>(`result-sheets/${id}/reopen/`, { reason })),
   getDepartmentReport: () => get<DepartmentReport>("reports/department/"),
 
   getAdminDashboard: () => get<AdminDashboard>("admin/dashboard/"),
@@ -250,6 +401,8 @@ export const remoteApi = {
   getSessions: async () => (await getList<Raw>("sessions/")).map(mapSession),
   createSession: async (input: SessionInput) => mapSession(await post<Raw>("sessions/", toSessionInput(input))),
   setCurrentSemester: async (semesterId: number) => mapSemester(await post<Raw>(`semesters/${semesterId}/set-current/`)),
+  setRegistrationOpen: async (semesterId: number, open: boolean) =>
+    mapSemester(await patch<Raw>(`semesters/${semesterId}/`, { registration_open: open })),
   getUsers: async () => (await getList<Raw>("users/")).map(mapUser),
   getUser: async (id: number) => mapUserDetail(await get<Raw>(`users/${id}/`)),
   updateUserStatus: async (id: number, status: UserStatus) => mapUser(await post<Raw>(`users/${id}/${status.toLowerCase()}/`)) as UserAccount,
@@ -258,8 +411,8 @@ export const remoteApi = {
     post<{ detail: string }>("auth/change-password/", input),
   getUniversityReport: () => get<UniversityReport>("reports/university/"),
   getAuditLog: () => get<AuditEntry[]>("audit-log/"),
-  getGradeScale: () => get<GradeBand[]>("grade-scale/"),
-  updateGradeScale: (bands: GradeBand[]) => put<GradeBand[]>("grade-scale/", { bands }),
+  getGradeScale: async () => (await get<Raw[]>("grade-scale/")).map(mapGradeBand),
+  updateGradeScale: async (bands: GradeBand[]) => (await put<Raw[]>("grade-scale/", { bands })).map(mapGradeBand),
 };
 
 export type Api = typeof remoteApi;

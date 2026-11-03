@@ -15,7 +15,7 @@ export default function DepartmentResultsPage() {
   return (
     <>
       <PageHeader title="Result sheets" description="Review what lecturers have submitted. Pending sheets are shown first." />
-      <ResultSheetsBrowser sheets={data} reviewHref={(sheet) => `/department/results/${sheet.id}`} />
+      <ResultSheetsBrowser sheets={data} reviewHref={(sheet) => `/department/results/${sheet.id}`} canApprove />
     </>
   );
 }

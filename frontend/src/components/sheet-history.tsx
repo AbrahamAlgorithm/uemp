@@ -10,6 +10,27 @@ const EVENTS: Record<SheetAction, { label: string; dot: string }> = {
   REOPENED: { label: "Reopened", dot: "bg-amber-500" },
 };
 
+export function Timeline({ events }: { events: SheetEvent[] }) {
+  if (events.length === 0) return <p className="text-sm text-muted-foreground">Not submitted yet.</p>;
+  return (
+    <ol className="space-y-4">
+      {[...events].reverse().map((event, index) => (
+        <li key={`${event.at}-${index}`} className="flex gap-3 text-sm">
+          <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", EVENTS[event.action].dot)} aria-hidden />
+          <div className="min-w-0">
+            <p className="font-medium">{EVENTS[event.action].label}</p>
+            <p className="text-xs text-muted-foreground">
+              {event.actor ? `${event.actor.name} · ` : ""}
+              {formatDateTime(event.at)}
+            </p>
+            {event.note && <p className="mt-1.5 rounded-md bg-muted px-3 py-2 text-sm">{event.note}</p>}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function SheetHistory({ events }: { events: SheetEvent[] }) {
   return (
     <Card>
@@ -17,24 +38,7 @@ export function SheetHistory({ events }: { events: SheetEvent[] }) {
         <CardTitle>History</CardTitle>
       </CardHeader>
       <CardContent>
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Not submitted yet.</p>
-        ) : (
-          <ol className="space-y-4">
-            {[...events].reverse().map((event, index) => (
-              <li key={`${event.at}-${index}`} className="flex gap-3 text-sm">
-                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", EVENTS[event.action].dot)} aria-hidden />
-                <div className="min-w-0">
-                  <p className="font-medium">{EVENTS[event.action].label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {event.actor.name} · {formatDateTime(event.at)}
-                  </p>
-                  {event.note && <p className="mt-1.5 rounded-md bg-muted px-3 py-2 text-sm">{event.note}</p>}
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
+        <Timeline events={events} />
       </CardContent>
     </Card>
   );

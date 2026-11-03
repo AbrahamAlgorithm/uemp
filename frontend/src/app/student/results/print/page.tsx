@@ -40,7 +40,10 @@ export default function ResultStatementPage() {
       )}
       <div className="flex justify-end gap-10 border-t-2 border-foreground/60 pt-3">
         <p>
-          Units completed <span className="font-semibold tabular-nums">{data.totalUnits}</span>
+          Units passed{" "}
+          <span className="font-semibold tabular-nums">
+            {data.unitsPassed} of {data.unitsAttempted}
+          </span>
         </p>
         <p>
           Cumulative GPA <span className="font-semibold tabular-nums">{formatGpa(data.cgpa)}</span>

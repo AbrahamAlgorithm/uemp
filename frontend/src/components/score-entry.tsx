@@ -1,91 +1,109 @@
 "use client";
 
 import { Save, Send } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SheetBanner } from "@/components/sheet-banner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { useLeaveWarning } from "@/hooks/use-leave-warning";
+import { api, errorMessage } from "@/lib/api";
 import { CA_MAX, EXAM_MAX } from "@/lib/constants";
-import { scoreResult } from "@/lib/grading";
-import { withToast } from "@/lib/toast";
-import type { GradeBand, ResultSheet, ScoreInput } from "@/lib/types";
+import { previewResult } from "@/lib/grading";
+import type { GradeBand, ResultEntry, ResultSheet, ScoreInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Kind = "ca" | "exam";
 type Draft = Record<number, Record<Kind, string>>;
 
-const SCORE_SCHEMAS: Record<Kind, z.ZodNumber> = {
-  ca: z.number().min(0, "Can't be negative").max(CA_MAX, `Max ${CA_MAX}`),
-  exam: z.number().min(0, "Can't be negative").max(EXAM_MAX, `Max ${EXAM_MAX}`),
-};
-
+const MAX: Record<Kind, number> = { ca: CA_MAX, exam: EXAM_MAX };
+const LABEL: Record<Kind, string> = { ca: "CA", exam: "Exam" };
+const LEAVE_MESSAGE = "You have unsaved scores. Leave this page without saving them?";
 
 function parse(value: string): number | null {
   return value.trim() === "" ? null : Number(value);
 }
 
 function validate(kind: Kind, value: string): string | null {
-  const number = parse(value);
-  if (number === null) return null;
-  const result = SCORE_SCHEMAS[kind].safeParse(number);
-  return result.success ? null : (result.error.issues[0]?.message ?? "Invalid");
+  const text = value.trim();
+  if (text === "") return null;
+  const number = Number(text);
+  if (!Number.isFinite(number)) return "Enter a number";
+  if (number < 0) return "Can't be negative";
+  if (number > MAX[kind]) return `Max ${MAX[kind]}`;
+  if (!/^\d+(\.\d{1,2})?$/.test(text)) return "Up to 2 decimals";
+  return null;
 }
+
+const saved = (entry: ResultEntry) => ({ ca: entry.ca?.toString() ?? "", exam: entry.exam?.toString() ?? "" });
 
 interface ScoreEntryProps {
   sheet: ResultSheet;
   scale: GradeBand[];
+  onSaved: (sheet: ResultSheet) => void;
   onSubmitted: () => void;
 }
 
-export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
-  const editable = sheet.status === "DRAFT" || sheet.status === "REJECTED";
-  const [draft, setDraft] = useState<Draft>(() =>
-    Object.fromEntries(
-      sheet.entries.map((entry) => [entry.studentId, { ca: entry.ca?.toString() ?? "", exam: entry.exam?.toString() ?? "" }]),
-    ),
-  );
-  const [dirty, setDirty] = useState(false);
+export function ScoreEntry({ sheet, scale, onSaved, onSubmitted }: ScoreEntryProps) {
+  const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
   const rows = sheet.entries.map((entry) => {
-    const values = draft[entry.studentId]!;
+    const values = draft[entry.registrationId] ?? saved(entry);
     const errors = { ca: validate("ca", values.ca), exam: validate("exam", values.exam) };
-    const result = errors.ca || errors.exam ? null : scoreResult(parse(values.ca), parse(values.exam), scale);
-    return { entry, values, errors, result };
+    const ca = parse(values.ca);
+    const exam = parse(values.exam);
+    const valid = !errors.ca && !errors.exam;
+    const changed = { ca: valid && ca !== entry.ca, exam: valid && exam !== entry.exam };
+    return {
+      entry,
+      values,
+      errors,
+      ca,
+      exam,
+      preview: valid ? previewResult(ca, exam, scale) : null,
+      missing: (["ca", "exam"] as const).filter((kind) => (kind === "ca" ? ca : exam) === null),
+      changed,
+    };
   });
   const invalid = rows.some((row) => row.errors.ca || row.errors.exam);
-  const complete = rows.length > 0 && rows.every((row) => row.result);
-  const scored = rows.filter((row) => row.result).length;
+  const changes: ScoreInput[] = rows
+    .filter((row) => row.changed.ca || row.changed.exam)
+    .map((row) => ({
+      registrationId: row.entry.registrationId,
+      ...(row.changed.ca ? { ca: row.ca } : {}),
+      ...(row.changed.exam ? { exam: row.exam } : {}),
+    }));
+  const dirty = invalid || changes.length > 0;
+  const blanks = rows.filter((row) => row.missing.length > 0);
+  const scored = rows.length - blanks.length;
 
-  const scores = (): ScoreInput[] =>
-    rows.map((row) => ({ studentId: row.entry.studentId, ca: parse(row.values.ca), exam: parse(row.values.exam) }));
+  useLeaveWarning(sheet.editable && dirty, LEAVE_MESSAGE);
 
-  const update = (studentId: number, kind: Kind, value: string) => {
-    setDraft((current) => ({ ...current, [studentId]: { ...current[studentId]!, [kind]: value } }));
-    setDirty(true);
+  const update = (registrationId: number, kind: Kind, value: string, entry: ResultEntry) => {
+    setDraft((current) => ({ ...current, [registrationId]: { ...(current[registrationId] ?? saved(entry)), [kind]: value } }));
   };
 
   const moveDown = (event: React.KeyboardEvent<HTMLInputElement>, index: number, kind: Kind) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     const next = rows[index + 1];
-    if (next) document.getElementById(`${kind}-${next.entry.studentId}`)?.focus();
+    if (next) document.getElementById(`${kind}-${next.entry.registrationId}`)?.focus();
+  };
+
+  const persist = async () => {
+    if (changes.length === 0) return sheet;
+    const next = await api.saveScores(sheet.offeringId, changes);
+    setDraft({});
+    onSaved(next);
+    return next;
   };
 
   const saveDraft = async () => {
@@ -94,21 +112,35 @@ export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
       return;
     }
     setSaving(true);
-    const done = await withToast(api.saveScores(sheet.id, scores()), "Draft saved");
-    setSaving(false);
-    if (done) setDirty(false);
+    try {
+      await persist();
+      toast.success("Draft saved");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const submit = async () => {
-    const done = await withToast(
-      api.saveScores(sheet.id, scores()).then(() => api.submitSheet(sheet.id)),
-      `${sheet.course.code} submitted for approval`,
-    );
-    if (done) {
-      setDirty(false);
+    try {
+      await persist();
+      await api.submitSheet(sheet.offeringId, blanks.length > 0);
+      toast.success(`${sheet.course.code} submitted for approval`);
       onSubmitted();
+      return true;
+    } catch (error) {
+      toast.error(errorMessage(error));
+      return false;
     }
-    return done;
+  };
+
+  const openSubmit = () => {
+    if (invalid) {
+      toast.error("Fix the highlighted scores before submitting.");
+      return;
+    }
+    setConfirming(true);
   };
 
   return (
@@ -122,6 +154,7 @@ export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
               <TableHead className="w-10">#</TableHead>
               <TableHead>Matric no</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Dept</TableHead>
               <TableHead className="w-28">CA / {CA_MAX}</TableHead>
               <TableHead className="w-28">Exam / {EXAM_MAX}</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -130,61 +163,91 @@ export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row, index) => (
-              <TableRow key={row.entry.studentId}>
-                <TableCell className="text-muted-foreground tabular-nums">{index + 1}</TableCell>
-                <TableCell className="font-medium whitespace-nowrap">{row.entry.matricNumber}</TableCell>
-                <TableCell className="min-w-44">{row.entry.studentName}</TableCell>
-                {(["ca", "exam"] as const).map((kind) => (
-                  <TableCell key={kind} className="align-top">
-                    {editable ? (
-                      <div className="space-y-1">
-                        <Input
-                          id={`${kind}-${row.entry.studentId}`}
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          max={kind === "ca" ? CA_MAX : EXAM_MAX}
-                          value={row.values[kind]}
-                          onChange={(event) => update(row.entry.studentId, kind, event.target.value)}
-                          onKeyDown={(event) => moveDown(event, index, kind)}
-                          aria-label={`${kind === "ca" ? "CA" : "Exam"} score for ${row.entry.studentName}`}
-                          aria-invalid={!!row.errors[kind]}
-                          className="h-8 w-20 text-right tabular-nums"
-                        />
-                        {row.errors[kind] && <p className="text-xs text-destructive">{row.errors[kind]}</p>}
-                      </div>
-                    ) : (
-                      <span className="tabular-nums">{row.values[kind] || "—"}</span>
-                    )}
+            {rows.map((row, index) => {
+              // the stored grade is what was submitted; while editing, the preview follows the grid
+              const result = sheet.editable
+                ? row.preview
+                : row.entry.total === null
+                  ? null
+                  : { total: row.entry.total, grade: row.entry.grade, gradePoint: row.entry.gradePoint };
+              const provisional = sheet.editable && row.missing.length > 0;
+              return (
+                <TableRow key={row.entry.registrationId}>
+                  <TableCell className="text-muted-foreground tabular-nums">{index + 1}</TableCell>
+                  <TableCell className="font-medium whitespace-nowrap">{row.entry.matricNumber}</TableCell>
+                  <TableCell className="min-w-44">
+                    <span className="flex items-center gap-2">
+                      {row.entry.studentName}
+                      {row.entry.isCarryOver && (
+                        <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700">
+                          Carry-over
+                        </Badge>
+                      )}
+                    </span>
                   </TableCell>
-                ))}
-                <TableCell className="text-right font-medium tabular-nums">{row.result?.total ?? "—"}</TableCell>
-                <TableCell className={cn("text-center font-semibold", row.result?.grade === "F" && "text-destructive")}>
-                  {row.result?.grade ?? "—"}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">{row.result?.gradePoint ?? "—"}</TableCell>
-              </TableRow>
-            ))}
+                  <TableCell className="text-muted-foreground">{row.entry.department.code}</TableCell>
+                  {(["ca", "exam"] as const).map((kind) => (
+                    <TableCell key={kind} className="align-top">
+                      {sheet.editable ? (
+                        <div className="space-y-1">
+                          <Input
+                            id={`${kind}-${row.entry.registrationId}`}
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            max={MAX[kind]}
+                            step="any"
+                            value={row.values[kind]}
+                            onChange={(event) => update(row.entry.registrationId, kind, event.target.value, row.entry)}
+                            onKeyDown={(event) => moveDown(event, index, kind)}
+                            aria-label={`${LABEL[kind]} score for ${row.entry.studentName}`}
+                            aria-invalid={!!row.errors[kind]}
+                            className={cn("h-8 w-20 text-right tabular-nums", row.changed[kind] && "border-amber-400")}
+                          />
+                          {row.errors[kind] && <p className="text-xs text-destructive">{row.errors[kind]}</p>}
+                        </div>
+                      ) : (
+                        <span className="tabular-nums">{row.values[kind] || "—"}</span>
+                      )}
+                    </TableCell>
+                  ))}
+                  <TableCell className={cn("text-right font-medium tabular-nums", provisional && "text-muted-foreground")}>
+                    {result?.total ?? "—"}
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      "text-center font-semibold",
+                      result?.grade === "F" && "text-destructive",
+                      provisional && "opacity-60",
+                    )}
+                  >
+                    {result?.grade ?? "—"}
+                  </TableCell>
+                  <TableCell className={cn("text-right tabular-nums", provisional && "text-muted-foreground")}>
+                    {result?.gradePoint ?? "—"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
 
-      {editable && (
+      {sheet.editable && (
         <div className="sticky bottom-4 z-10 mt-4 flex flex-col gap-3 rounded-2xl border bg-card px-4 py-3 shadow-sm sm:flex-row sm:items-center">
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground tabular-nums">
               {scored} of {rows.length}
             </span>{" "}
-            students scored
+            scored
             {dirty && <span className="ml-2 text-amber-700">· Unsaved changes</span>}
           </p>
           <div className="flex gap-2 sm:ml-auto">
-            <Button variant="outline" onClick={saveDraft} disabled={saving || !dirty}>
+            <Button variant="outline" onClick={saveDraft} disabled={saving || changes.length === 0}>
               {saving ? <Spinner /> : <Save />}
               Save draft
             </Button>
-            <Button onClick={() => setConfirming(true)} disabled={!complete || invalid || saving}>
+            <Button onClick={openSubmit} disabled={saving || rows.length === 0}>
               <Send />
               Submit for approval
             </Button>
@@ -196,10 +259,30 @@ export function ScoreEntry({ sheet, scale, onSubmitted }: ScoreEntryProps) {
         open={confirming}
         onOpenChange={setConfirming}
         title={`Submit ${sheet.course.code} results?`}
-        description={`All ${rows.length} scores will be sent to the department for approval. You won't be able to edit them unless the sheet is returned.`}
-        confirmLabel="Submit"
+        description={
+          blanks.length === 0
+            ? `All ${rows.length} students have both scores. The department reviews the sheet next, and you can't edit it unless it's returned.`
+            : `${blanks.length} of ${rows.length} students have a blank score. Blank scores will be recorded as 0, and you can't edit the sheet unless it's returned.`
+        }
+        confirmLabel={blanks.length === 0 ? "Submit" : "Submit with blanks as 0"}
         onConfirm={submit}
-      />
+      >
+        {blanks.length > 0 && (
+          <ul className="max-h-56 divide-y overflow-y-auto rounded-lg border text-sm">
+            {blanks.map((row) => (
+              <li key={row.entry.registrationId} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="min-w-0">
+                  <span className="block truncate">{row.entry.studentName}</span>
+                  <span className="text-xs text-muted-foreground">{row.entry.matricNumber}</span>
+                </span>
+                <span className="shrink-0 text-xs text-amber-700">
+                  No {row.missing.map((kind) => LABEL[kind]).join(" or ")} score
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

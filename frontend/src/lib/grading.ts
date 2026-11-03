@@ -32,6 +32,14 @@ export function scoreResult(ca: number | null, exam: number | null, scale: Grade
   return { total, grade: band.grade, gradePoint: band.point };
 }
 
+// what submit will record: a blank score counts as 0 but stays blank on the sheet
+export function previewResult(ca: number | null, exam: number | null, scale: GradeBand[]) {
+  if (ca === null && exam === null) return null;
+  const total = Math.round(((ca ?? 0) + (exam ?? 0)) * 100) / 100;
+  const band = gradeFor(total, scale);
+  return { total, grade: band.grade, gradePoint: band.point };
+}
+
 export function weightedAverage(items: { units: number; gradePoint: number }[]): number | null {
   const units = items.reduce((sum, item) => sum + item.units, 0);
   if (units === 0) return null;

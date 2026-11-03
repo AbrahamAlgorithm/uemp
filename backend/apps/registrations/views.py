@@ -9,8 +9,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.courses.models import CourseOffering
 from core.permissions import MANAGERS, HasRole, IsStudent
-from core.scoping import DepartmentScopedQuerysetMixin
+from core.scoping import DepartmentScopedQuerysetMixin, department_scope
 from core.viewsets import PagePagination
 
 from .models import CourseRegistration, SemesterRegistration
@@ -24,7 +25,7 @@ from .serializers import (
 )
 from .services import current_semester, registration_options, return_registration, submit_registration, validate_registration
 
-FORM_RELATIONS = ("student__user", "student__program__department", "semester__session", "validated_by")
+FORM_RELATIONS = ("student__user", "student__program__department__faculty", "semester__session", "validated_by")
 
 
 def int_param(request, name):
@@ -145,6 +146,7 @@ class StudentRegistrationHistoryView(APIView):
         OpenApiParameter("status", str, enum=SemesterRegistration.Status.values),
         OpenApiParameter("level", int),
         OpenApiParameter("program", int),
+        OpenApiParameter("department", int, description="The student's department"),
         OpenApiParameter("search", str, description="Student name or matric number"),
     ]
 )
@@ -169,7 +171,13 @@ class RegistrationFormViewSet(DepartmentScopedQuerysetMixin, viewsets.ReadOnlyMo
 
     def filter_queryset(self, queryset):
         params = self.request.query_params
-        for name, lookup in (("semester", "semester"), ("level", "student__level"), ("program", "student__program")):
+        filters = (
+            ("semester", "semester"),
+            ("level", "student__level"),
+            ("program", "student__program"),
+            ("department", "student__program__department"),
+        )
+        for name, lookup in filters:
             value = int_param(self.request, name)
             if value is not None:
                 queryset = queryset.filter(**{lookup: value})
@@ -213,15 +221,28 @@ class RegistrationFormViewSet(DepartmentScopedQuerysetMixin, viewsets.ReadOnlyMo
 class CourseRegistrationViewSet(DepartmentScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     permission_classes = [HasRole(*MANAGERS)]
     pagination_class = PagePagination
-    department_lookup = "student__program__department"
+    # the department that owns a course sees everyone on it, whichever department they're from
+    department_lookup = "offering__course__department"
     serializer_class = CourseRegistrationSerializer
     queryset = CourseRegistration.objects.select_related(
         "student__user",
-        "student__program__department",
+        "student__program__department__faculty",
         "offering__course",
         "offering__semester__session",
         "semester_registration",
     ).order_by("offering__course__code", "student__matric_no")
+
+    def list(self, request, *args, **kwargs):
+        offering_id = int_param(request, "offering")
+        if offering_id is not None:
+            offerings = CourseOffering.objects.filter(pk=offering_id)
+            scope = department_scope(request.user)
+            if scope is not None:
+                offerings = offerings.filter(course__department=scope)
+            # another department's course 404s, as an out-of-scope object would
+            if not offerings.exists():
+                raise Http404
+        return super().list(request, *args, **kwargs)
 
     def filter_queryset(self, queryset):
         for name, lookup in (("offering", "offering"), ("semester", "offering__semester")):

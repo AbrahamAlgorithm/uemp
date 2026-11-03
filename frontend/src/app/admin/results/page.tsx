@@ -22,7 +22,7 @@ export default function AdminResultsPage() {
     <>
       <PageHeader
         title="Result approval oversight"
-        description="Departments approve their own results. This view tracks progress across the university."
+        description="Departments approve their own results. You can open any sheet and reopen approved ones."
       />
       <StatGrid>
         <StatCard label="Awaiting approval" tone="orange" value={count("SUBMITTED")} icon={Clock} hint="This semester" />
@@ -31,7 +31,7 @@ export default function AdminResultsPage() {
         <StatCard label="Still in draft" tone="neutral" value={count("DRAFT")} icon={PencilLine} hint="This semester" />
       </StatGrid>
       <div className="mt-6">
-        <ResultSheetsBrowser sheets={data} showDepartment />
+        <ResultSheetsBrowser sheets={data} reviewHref={(sheet) => `/admin/results/${sheet.id}`} showDepartment />
       </div>
     </>
   );

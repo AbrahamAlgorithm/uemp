@@ -10,6 +10,7 @@ import { ErrorState, PageSkeleton } from "@/components/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { SEMESTER_LABELS } from "@/lib/constants";
@@ -22,9 +23,20 @@ export default function SessionsPage() {
   const { data, error, reload } = useAsync(api.getSessions);
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState<Semester | null>(null);
+  const [toggling, setToggling] = useState<number | null>(null);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton rows={6} />;
+
+  const setRegistration = async (semester: Semester, open: boolean) => {
+    setToggling(semester.id);
+    const done = await withToast(
+      api.setRegistrationOpen(semester.id, open),
+      `Registration ${open ? "opened" : "closed"} for ${semesterLabel(semester)}`,
+    );
+    setToggling(null);
+    if (done) reload();
+  };
 
   const makeCurrent = async () => {
     if (!target) return false;
@@ -65,17 +77,28 @@ export default function SessionsPage() {
             <CardContent>
               <ul className="divide-y rounded-md border">
                 {session.semesters.map((semester) => (
-                  <li key={semester.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <li key={semester.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
                     <span className="font-medium">{SEMESTER_LABELS[semester.name]}</span>
-                    {semester.isCurrent ? (
-                      <Badge variant="outline" className="border-primary/40 bg-accent text-accent-foreground">
-                        Current
-                      </Badge>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => setTarget(semester)}>
-                        Set as current
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-muted-foreground">
+                        <Switch
+                          checked={semester.registrationOpen}
+                          disabled={toggling === semester.id}
+                          onCheckedChange={(open) => setRegistration(semester, open)}
+                          aria-label={`Registration open for ${semesterLabel(semester)}`}
+                        />
+                        Registration open
+                      </label>
+                      {semester.isCurrent ? (
+                        <Badge variant="outline" className="border-primary/40 bg-accent text-accent-foreground">
+                          Current
+                        </Badge>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={() => setTarget(semester)}>
+                          Set as current
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

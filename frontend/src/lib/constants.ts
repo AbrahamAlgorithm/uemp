@@ -1,4 +1,4 @@
-import type { AuditAction, Level, Role, SemesterName, SheetStatus, UserStatus } from "./types";
+import type { AuditAction, Level, RegistrationStatus, Role, SemesterName, SheetStatus, UserStatus } from "./types";
 
 export const UNIVERSITY_NAME = "Crestview University";
 export const UNIVERSITY_ADDRESS = "Ibadan, Oyo State, Nigeria";
@@ -26,6 +26,13 @@ export const USER_STATUS_LABELS: Record<UserStatus, string> = {
   ACTIVE: "Active",
   INACTIVE: "Inactive",
   SUSPENDED: "Suspended",
+};
+
+export const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus | "NONE", string> = {
+  NONE: "Not submitted",
+  SUBMITTED: "Awaiting validation",
+  VALIDATED: "Validated",
+  RETURNED: "Returned",
 };
 
 export const SHEET_STATUS_LABELS: Record<SheetStatus, string> = {

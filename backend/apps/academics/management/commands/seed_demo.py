@@ -12,9 +12,12 @@ from django.db.models import ProtectedError, Q
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
 from apps.accounts.models import StaffProfile, StudentProfile, User
+from apps.audit.models import AuditLog
 from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import CourseRegistration, SemesterRegistration
 from apps.registrations.services import validated_registrations
+from apps.results import services as results
+from apps.results.grading import grade_for
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
 
 DOMAIN = "uemp.test"
@@ -126,6 +129,11 @@ COURSES = [
     ("CSC 204", "Fundamentals of Data Structures", 3, ["CS", "IT"]),
     ("CSC 301", "Data Structures and Algorithms", 3, ["CS", "IT"]),
     ("CSC 303", "Operating Systems", 3, ["CS", "IT"]),
+    ("CSC 305", "Database Management Systems", 3, ["CS", "IT"]),
+    ("CSC 307", "Computer Architecture", 3, ["CS"]),
+    ("CSC 309", "Software Engineering", 3, ["CS", "IT"]),
+    ("CSC 311", "Object-Oriented Programming", 3, ["CS", "IT"]),
+    ("CSC 315", "Computer Networks", 3, ["CS", "IT"]),
     ("MTH 101", "Elementary Mathematics I", 3, ["MTH"]),
     ("MTH 102", "Elementary Mathematics II", 3, ["MTH"]),
     ("MTH 201", "Mathematical Methods I", 3, ["MTH"]),
@@ -161,6 +169,12 @@ OFFERINGS = {
         "CSC 201": ("lecturer3.csc", Status.DRAFT, None),
         "CSC 301": ("lecturer1.csc", Status.REJECTED, "full"),
         "CSC 303": ("lecturer2.csc", Status.SUBMITTED, "full"),
+        # enough 300-level options that a full selection runs past the unit cap
+        "CSC 305": ("lecturer2.csc", Status.DRAFT, None),
+        "CSC 307": ("lecturer3.csc", Status.DRAFT, None),
+        "CSC 309": ("lecturer1.csc", Status.DRAFT, None),
+        "CSC 311": ("lecturer2.csc", Status.DRAFT, None),
+        "CSC 315": ("lecturer3.csc", Status.DRAFT, None),
         "MTH 101": ("lecturer2.mth", Status.DRAFT, None),
         "MTH 201": ("lecturer1.mth", Status.SUBMITTED, "full"),
         "MTH 301": ("lecturer1.mth", Status.APPROVED, "full"),
@@ -197,6 +211,11 @@ SUBMITTED_FROM = {
     PAST_SECOND: datetime(2026, 7, 13, 9, 0, tzinfo=timezone.utc),
     CURRENT: datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc),
 }
+
+
+def office_hours(start, n):
+    # monday to wednesday, 9am to 4pm, so a review two days later still lands on a weekday
+    return start + timedelta(days=n % 3, hours=n % 7, minutes=n * 17 % 60)
 
 
 def demo_scores(ability, matric_no, course_code):
@@ -236,13 +255,17 @@ class Command(BaseCommand):
         offerings = CourseOffering.objects.filter(
             Q(course__department__in=departments) | Q(semester__session__in=sessions)
         )
+        sheets = ResultSheet.objects.filter(offering__in=offerings)
         try:
+            AuditLog.objects.filter(
+                entity_type=ResultSheet._meta.label_lower, entity_id__in=[str(pk) for pk in sheets.values_list("pk", flat=True)]
+            ).delete()
             ResultEntry.objects.filter(registration__offering__in=offerings).delete()
             CourseRegistration.objects.filter(offering__in=offerings).delete()
             SemesterRegistration.objects.filter(
                 Q(semester__session__in=sessions) | Q(student__user__email__endswith=f"@{DOMAIN}")
             ).delete()
-            ResultSheet.objects.filter(offering__in=offerings).delete()
+            sheets.delete()
             offerings.delete()
             Course.objects.filter(department__in=departments).delete()
             User.objects.filter(email__endswith=f"@{DOMAIN}").delete()
@@ -481,7 +504,7 @@ class Command(BaseCommand):
         total = grade = point = None
         if graded:
             total = ca + exam
-            band = next(band for band in self.bands if band.min_score <= total <= band.max_score)
+            band = grade_for(total, self.bands)
             grade, point = band.grade, band.point
         ResultEntry.objects.update_or_create(
             registration=registration,
@@ -495,11 +518,43 @@ class Command(BaseCommand):
         sheet.submitted_by = sheet.submitted_at = sheet.reviewed_by = sheet.reviewed_at = None
         if status != Status.DRAFT:
             sheet.submitted_by = offering.lecturer.user
-            sheet.submitted_at = SUBMITTED_FROM[key] + timedelta(hours=position)
+            sheet.submitted_at = office_hours(SUBMITTED_FROM[key], position)
         if status in (Status.APPROVED, Status.REJECTED):
             sheet.reviewed_by = self.dept_admins[offering.course.department.code]
-            sheet.reviewed_at = sheet.submitted_at + timedelta(days=3)
+            sheet.reviewed_at = sheet.submitted_at + timedelta(days=2, hours=1, minutes=12)
         sheet.save()
+        self.write_history(sheet)
+
+    def write_history(self, sheet):
+        # a rerun resets the sheet, so whatever was logged against it no longer describes it
+        AuditLog.objects.filter(entity_type=ResultSheet._meta.label_lower, entity_id=str(sheet.pk)).delete()
+        if sheet.status == Status.DRAFT:
+            return
+        count = results.class_list(sheet).count()
+        submission = results.record(
+            sheet.submitted_by,
+            "RESULTS_SUBMITTED",
+            sheet,
+            Status.DRAFT,
+            {"status": Status.SUBMITTED, "count": count, "blanks": 0},
+            details=results.submitted_details(count, 0),
+        )
+        events = [(submission, sheet.submitted_at)]
+        if sheet.status == Status.APPROVED:
+            review = results.record(sheet.reviewed_by, "RESULTS_APPROVED", sheet, Status.SUBMITTED, {"status": Status.APPROVED})
+            events.append((review, sheet.reviewed_at))
+        elif sheet.status == Status.REJECTED:
+            review = results.record(
+                sheet.reviewed_by,
+                "RESULTS_REJECTED",
+                sheet,
+                Status.SUBMITTED,
+                {"status": Status.REJECTED, "feedback": sheet.feedback},
+                details=sheet.feedback,
+            )
+            events.append((review, sheet.reviewed_at))
+        for row, at in events:
+            AuditLog.objects.filter(pk=row.pk).update(created_at=at)
 
     def print_logins(self):
         rows = [

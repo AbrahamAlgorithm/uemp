@@ -8,11 +8,15 @@ export class ApiError extends Error {
   }
 }
 
+// drf nests field errors per list item and per key, so the first readable message can sit a few levels down
 function messageFrom(data: unknown): string | null {
+  if (typeof data === "string") return data;
   if (!data || typeof data !== "object") return null;
   if ("detail" in data && typeof data.detail === "string") return data.detail;
-  const first = Object.values(data)[0];
-  if (Array.isArray(first) && typeof first[0] === "string") return first[0];
+  for (const value of Object.values(data)) {
+    const message = messageFrom(value);
+    if (message) return message;
+  }
   return null;
 }
 

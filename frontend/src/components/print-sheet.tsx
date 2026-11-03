@@ -11,10 +11,11 @@ interface PrintSheetProps {
   title: string;
   subtitle?: string;
   backHref: string;
+  stamp?: string;
   children: React.ReactNode;
 }
 
-export function PrintSheet({ title, subtitle, backHref, children }: PrintSheetProps) {
+export function PrintSheet({ title, subtitle, backHref, stamp, children }: PrintSheetProps) {
   return (
     <div>
       <div className="mx-auto mb-4 flex max-w-[210mm] items-center justify-between print:hidden">
@@ -29,7 +30,14 @@ export function PrintSheet({ title, subtitle, backHref, children }: PrintSheetPr
           Print
         </Button>
       </div>
-      <article className="mx-auto max-w-[210mm] rounded-lg border bg-white p-6 text-[13px] shadow-xs sm:p-12 print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      <article className="relative mx-auto max-w-[210mm] overflow-hidden rounded-lg border bg-white p-6 text-[13px] shadow-xs sm:p-12 print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
+        {stamp && (
+          <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="-rotate-[24deg] rounded-xl border-4 border-red-600/25 px-6 py-2 text-4xl font-bold tracking-[0.2em] whitespace-nowrap text-red-600/25 uppercase [print-color-adjust:exact] sm:text-6xl">
+              {stamp}
+            </span>
+          </div>
+        )}
         <header className="border-b-2 border-primary pb-5 text-center">
           <p className="text-xl font-semibold tracking-tight">{UNIVERSITY_NAME}</p>
           <p className="text-muted-foreground">{UNIVERSITY_ADDRESS}</p>

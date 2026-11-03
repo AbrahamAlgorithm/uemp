@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from django.db import IntegrityError, transaction
 
-from apps.academics.models import AcademicSession, Program, Semester
+from apps.academics.models import AcademicSession, Department, Program, Semester
 from apps.accounts.models import StudentProfile, User
 from apps.audit.models import AuditLog
 from apps.courses.models import Course, CourseOffering
@@ -271,6 +271,7 @@ def test_department_admin_lists_and_validates_their_department(submitted, eee_fo
     assert listing["results"][0]["total_units"] == 3
     assert api.get(f"{FORMS}{eee_form.pk}/").status_code == 404
     assert api.post(f"{FORMS}{eee_form.pk}/validate/").status_code == 404
+    assert api.post(f"{FORMS}{eee_form.pk}/return/", {"reason": "Not yours"}, format="json").status_code == 404
 
     response = api.post(f"{FORMS}{submitted.pk}/validate/")
     assert response.status_code == 200
@@ -307,12 +308,15 @@ def test_returning_needs_a_reason_and_is_blocked_by_scores(submitted, sign_in, a
     assert AuditLog.objects.filter(action="REGISTRATION_RETURNED").exists()
 
 
-def test_students_cannot_reach_admin_registration_endpoints(submitted, sign_in, api):
+def test_each_role_is_kept_to_its_own_registration_endpoints(submitted, sign_in, api):
     sign_in("student@uemp.test")
-
     assert api.get(FORMS).status_code == 403
     assert api.post(f"{FORMS}{submitted.pk}/validate/").status_code == 403
     assert api.get("/api/registrations/").status_code == 403
+
+    sign_in("lecturer@uemp.test")
+    assert api.get(URL).status_code == 403
+    assert api.put(URL, {"offering_ids": [1]}, format="json").status_code == 403
 
 
 def test_course_registrations_by_offering_show_the_form_status(submitted, catalogue, sign_in, api):
@@ -343,3 +347,51 @@ def test_super_admin_opens_and_closes_the_window(calendar, people, sign_in, api)
     assert actions == ["REGISTRATION_WINDOW_OPENED", "REGISTRATION_WINDOW_CLOSED"]
     sign_in("admin.csc@uemp.test")
     assert api.patch(f"/api/semesters/{semester.pk}/", {"registration_open": True}, format="json").status_code == 403
+
+
+
+@pytest.fixture
+def maths_course(csc, student, calendar):
+    maths = Department.objects.create(faculty=csc.faculty, name="Mathematics", code="MTH")
+    make_user("admin.mth@uemp.test", User.Role.DEPT_ADMIN, maths, staff_id="CVU/MTH/012")
+    course = Course.objects.create(
+        department=maths, code="MTH 301", title="Numerical Analysis", units=3, level=300, semester_term=FIRST
+    )
+    course.programs.add(student.program)
+    return CourseOffering.objects.create(course=course, semester=calendar["current"])
+
+
+def test_the_course_department_sees_every_student_on_its_course(maths_course, sign_in, api):
+    sign_in("student@uemp.test")
+    submit(api, maths_course)
+    url = f"/api/registrations/?offering={maths_course.pk}"
+
+    sign_in("admin.mth@uemp.test")
+    rows = api.get(url).json()["results"]
+    assert [(row["student"]["matric_no"], row["form_status"]) for row in rows] == [("CSC/2024/0001", "SUBMITTED")]
+
+    sign_in("admin.csc@uemp.test")
+    assert api.get(url).status_code == 404
+    assert [row["student"]["matric_no"] for row in api.get(FORMS).json()["results"]] == ["CSC/2024/0001"]
+
+
+def test_each_state_change_writes_exactly_one_audit_row(catalogue, student, calendar, sign_in, api):
+    def rows_written(method, url, data=None):
+        before = AuditLog.objects.count()
+        response = getattr(api, method)(url, data, format="json")
+        assert response.status_code == 200, response.content
+        return AuditLog.objects.count() - before, AuditLog.objects.order_by("-pk").first().action
+
+    sign_in("student@uemp.test")
+    submitted = rows_written("put", URL, {"offering_ids": [catalogue["csc301"].pk]})
+    assert submitted == (1, "REGISTRATION_SUBMITTED")
+    form = form_of(student, calendar["current"])
+
+    sign_in("admin.csc@uemp.test")
+    assert rows_written("post", f"{FORMS}{form.pk}/validate/") == (1, "REGISTRATION_VALIDATED")
+    assert rows_written("post", f"{FORMS}{form.pk}/return/", {"reason": "Add CSC 303"}) == (1, "REGISTRATION_RETURNED")
+
+    sign_in("superadmin@uemp.test")
+    semester = f"/api/semesters/{calendar['current'].pk}/"
+    assert rows_written("patch", semester, {"registration_open": False}) == (1, "REGISTRATION_WINDOW_CLOSED")
+    assert rows_written("patch", semester, {"registration_open": True}) == (1, "REGISTRATION_WINDOW_OPENED")

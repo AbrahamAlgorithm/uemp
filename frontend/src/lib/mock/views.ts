@@ -7,13 +7,10 @@ import type {
   Lecturer,
   Level,
   ResultEntry,
-  ResultSheet,
   ResultSheetSummary,
   Semester,
-  SemesterResult,
   StaffProfile,
   Student,
-  StudentResults,
   UserAccount,
 } from "../types";
 import { db, type AuditRow, type SheetRow } from "./db";
@@ -49,7 +46,13 @@ export function facultyRefForDepartment(departmentId: number): CodedRef {
 export function semesterView(id: number): Semester {
   const semester = db.semesters.find((row) => row.id === id)!;
   const session = db.sessions.find((row) => row.id === semester.sessionId)!;
-  return { id: semester.id, name: semester.name, isCurrent: semester.isCurrent, session: { id: session.id, name: session.name } };
+  return {
+    id: semester.id,
+    name: semester.name,
+    isCurrent: semester.isCurrent,
+    registrationOpen: semester.isCurrent,
+    session: { id: session.id, name: session.name },
+  };
 }
 
 export function courseSummary(course: CourseRow): CourseSummary {
@@ -145,13 +148,15 @@ export function sheetEntries(sheet: SheetRow): ResultEntry[] {
     .map((registration) => {
       const user = findUser(registration.studentId)!;
       const student = findStudent(registration.studentId)!;
+      const program = db.programs.find((row) => row.id === student.programId)!;
       const score = sheet.scores[registration.studentId] ?? { ca: null, exam: null };
       const result = scoreResult(score.ca, score.exam, db.gradeScale);
       return {
-        studentId: user.id,
+        registrationId: registration.id,
         matricNumber: student.matricNumber,
-        studentName: `${user.lastName} ${user.firstName}`,
-        level: student.level as Level,
+        studentName: `${user.firstName} ${user.lastName}`,
+        department: departmentRef(program.departmentId),
+        isCarryOver: false,
         ca: score.ca,
         exam: score.exam,
         total: result?.total ?? null,
@@ -166,29 +171,23 @@ export function sheetSummary(sheet: SheetRow): ResultSheetSummary {
   const allocation = findAllocation(sheet.allocationId)!;
   const course = findCourse(allocation.courseId)!;
   const lecturer = findUser(allocation.lecturerId)!;
+  const entries = sheetEntries(sheet);
   return {
     id: sheet.id,
-    allocationId: allocation.id,
+    offeringId: allocation.id,
     course: courseSummary(course),
     department: departmentRef(course.departmentId),
     lecturer: { id: lecturer.id, name: displayName(lecturer) },
     semester: semesterView(allocation.semesterId),
     status: sheet.status,
-    studentCount: registrationsFor(allocation.courseId, allocation.semesterId).length,
-    submittedAt: sheet.submittedAt,
-    reviewedAt: sheet.reviewedAt,
+    editable: sheet.status === "DRAFT" || sheet.status === "REJECTED",
     feedback: sheet.feedback,
-  };
-}
-
-export function sheetView(sheet: SheetRow): ResultSheet {
-  return {
-    ...sheetSummary(sheet),
-    entries: sheetEntries(sheet),
-    history: sheet.history.map((event) => {
-      const actor = findUser(event.actorId)!;
-      return { at: event.at, action: event.action, note: event.note, actor: { id: actor.id, name: displayName(actor) } };
-    }),
+    submittedBy: null,
+    submittedAt: sheet.submittedAt,
+    reviewedBy: null,
+    reviewedAt: sheet.reviewedAt,
+    studentCount: entries.length,
+    scoredCount: entries.filter((entry) => entry.total !== null).length,
   };
 }
 
@@ -206,43 +205,16 @@ export function auditView(row: AuditRow): AuditEntry {
   };
 }
 
-export function studentResults(studentId: number): StudentResults {
-  const bySemester = new Map<number, SemesterResult["courses"]>();
-
+export function cgpaOf(studentId: number): number | null {
+  const results: { units: number; gradePoint: number }[] = [];
   for (const registration of db.registrations.filter((row) => row.studentId === studentId)) {
     const allocation = db.allocations.find(
       (row) => row.courseId === registration.courseId && row.semesterId === registration.semesterId,
     );
     const sheet = allocation && db.sheets.find((row) => row.allocationId === allocation.id);
     const score = sheet?.scores[studentId];
-    if (!sheet || sheet.status !== "APPROVED" || !score) continue;
-    const result = scoreResult(score.ca, score.exam, db.gradeScale);
-    if (!result) continue;
-    const course = findCourse(registration.courseId)!;
-    const courses = bySemester.get(registration.semesterId) ?? [];
-    courses.push({ ...courseSummary(course), ca: score.ca!, exam: score.exam!, ...result });
-    bySemester.set(registration.semesterId, courses);
+    const result = sheet?.status === "APPROVED" && score ? scoreResult(score.ca, score.exam, db.gradeScale) : null;
+    if (result) results.push({ units: findCourse(registration.courseId)!.units, gradePoint: result.gradePoint });
   }
-
-  const cumulative: { units: number; gradePoint: number }[] = [];
-  const semesters = [...bySemester.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([semesterId, courses]) => {
-      courses.sort((a, b) => a.code.localeCompare(b.code));
-      cumulative.push(...courses);
-      return {
-        semester: semesterView(semesterId),
-        courses,
-        units: courses.reduce((sum, course) => sum + course.units, 0),
-        gpa: weightedAverage(courses)!,
-        cgpa: weightedAverage(cumulative)!,
-      };
-    });
-
-  return {
-    student: studentView(findStudent(studentId)!),
-    cgpa: weightedAverage(cumulative),
-    totalUnits: cumulative.reduce((sum, course) => sum + course.units, 0),
-    semesters,
-  };
+  return weightedAverage(results);
 }

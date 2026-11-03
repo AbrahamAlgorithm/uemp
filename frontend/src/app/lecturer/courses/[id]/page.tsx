@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { EntriesTable } from "@/components/entries-table";
 import { PageHeader } from "@/components/page-header";
 import { PerformanceSummary } from "@/components/performance-summary";
+import { SheetBanner } from "@/components/sheet-banner";
 import { ErrorState, PageSkeleton } from "@/components/states";
 import { SheetStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -16,36 +17,34 @@ import { semesterLabel } from "@/lib/format";
 
 export default function LecturerCoursePage() {
   const { id } = useParams<{ id: string }>();
-  const allocationId = Number(id);
-  const { data, error, reload } = useAsync(() => api.getLecturerCourse(allocationId), allocationId);
+  const offeringId = Number(id);
+  const { data: sheet, error, reload } = useAsync(() => api.getLecturerSheet(offeringId), offeringId);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
-  if (!data) return <PageSkeleton cards={0} rows={8} />;
-
-  const { course, sheet } = data;
-  const editable = sheet.status === "DRAFT" || sheet.status === "REJECTED";
+  if (!sheet) return <PageSkeleton cards={4} rows={8} />;
 
   return (
     <div className="space-y-6">
       <PageHeader
         back={{ href: "/lecturer/courses", label: "My courses" }}
-        title={`${course.course.code} ${course.course.title}`}
+        title={`${sheet.course.code} ${sheet.course.title}`}
         description={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {semesterLabel(course.semester)} · {course.course.units} units · {course.studentCount} students
+            {semesterLabel(sheet.semester)} · {sheet.course.units} units · {sheet.scoredCount} of {sheet.studentCount} scored
             <SheetStatusBadge status={sheet.status} />
           </span>
         }
         actions={
-          <Button variant={editable ? "default" : "outline"} asChild>
-            <Link href={`/lecturer/courses/${allocationId}/scores`}>
+          <Button variant={sheet.editable ? "default" : "outline"} asChild>
+            <Link href={`/lecturer/courses/${offeringId}/scores`}>
               <PencilLine />
-              {editable ? "Enter scores" : "View scores"}
+              {sheet.editable ? "Enter scores" : "View scores"}
             </Link>
           </Button>
         }
       />
-      <PerformanceSummary entries={sheet.entries} />
+      <SheetBanner sheet={sheet} audience="lecturer" />
+      <PerformanceSummary summary={sheet.summary} />
       <section>
         <h2 className="mb-3 text-base font-semibold">Class list</h2>
         <EntriesTable entries={sheet.entries} />

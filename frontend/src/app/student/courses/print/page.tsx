@@ -1,24 +1,48 @@
 "use client";
 
+import { BookOpen } from "lucide-react";
+import Link from "next/link";
+
 import { PrintDetails, PrintSheet, SignatureLines } from "@/components/print-sheet";
-import { ErrorState, PageSkeleton } from "@/components/states";
+import { EmptyState, ErrorState, PageSkeleton } from "@/components/states";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
-import { SEMESTER_LABELS } from "@/lib/constants";
+import { REGISTRATION_STATUS_LABELS, SEMESTER_LABELS } from "@/lib/constants";
+import { formatDate } from "@/lib/format";
 
 export default function RegistrationSlipPage() {
-  const { data, error, reload } = useAsync(api.getMyCourses);
+  const { data: slip, error, reload } = useAsync(api.getRegistrationSlip);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
-  if (!data) return <PageSkeleton rows={8} />;
+  if (slip === undefined) return <PageSkeleton rows={8} />;
+  if (slip === null) {
+    return (
+      <Card>
+        <EmptyState
+          icon={BookOpen}
+          title="Nothing to print yet"
+          description="Submit your course registration first."
+          action={
+            <Button asChild>
+              <Link href="/student/registration">Go to registration</Link>
+            </Button>
+          }
+        />
+      </Card>
+    );
+  }
 
-  const { student, semester } = data;
+  const { student, semester } = slip;
+  const validated = slip.status === "VALIDATED";
 
   return (
     <PrintSheet
       title="Course registration slip"
       subtitle={`${semester.session.name} session · ${SEMESTER_LABELS[semester.name]}`}
       backHref="/student/courses"
+      stamp={validated ? undefined : "Pending validation"}
     >
       <PrintDetails
         items={[
@@ -28,6 +52,13 @@ export default function RegistrationSlipPage() {
           { label: "Department", value: student.department.name },
           { label: "Program", value: `${student.program.award} ${student.program.name}` },
           { label: "Level", value: `${student.level} level` },
+          { label: "Status", value: REGISTRATION_STATUS_LABELS[slip.status] },
+          {
+            label: validated ? "Validated" : "Submitted",
+            value: validated
+              ? `${formatDate(slip.validatedAt ?? slip.submittedAt)}${slip.validatedBy ? ` by ${slip.validatedBy.name}` : ""}`
+              : formatDate(slip.submittedAt),
+          },
         ]}
       />
       <table className="w-full border-collapse">
@@ -40,10 +71,13 @@ export default function RegistrationSlipPage() {
           </tr>
         </thead>
         <tbody>
-          {data.courses.map((course, index) => (
-            <tr key={course.id} className="border-b">
+          {slip.courses.map((course, index) => (
+            <tr key={course.offeringId} className="border-b">
               <td className="px-2 py-2 tabular-nums">{index + 1}</td>
-              <td className="px-2 py-2 font-medium whitespace-nowrap">{course.code}</td>
+              <td className="px-2 py-2 font-medium whitespace-nowrap">
+                {course.code}
+                {course.isCarryOver && <span className="ml-1.5 text-xs font-normal text-muted-foreground">(carry-over)</span>}
+              </td>
               <td className="px-2 py-2">{course.title}</td>
               <td className="px-2 py-2 text-right tabular-nums">{course.units}</td>
             </tr>
@@ -54,7 +88,7 @@ export default function RegistrationSlipPage() {
             <td colSpan={3} className="px-2 py-2 font-semibold">
               Total units
             </td>
-            <td className="px-2 py-2 text-right font-semibold tabular-nums">{data.totalUnits}</td>
+            <td className="px-2 py-2 text-right font-semibold tabular-nums">{slip.totalUnits}</td>
           </tr>
         </tfoot>
       </table>

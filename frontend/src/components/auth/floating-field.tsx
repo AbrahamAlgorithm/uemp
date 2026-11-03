@@ -32,7 +32,7 @@ export function FloatingField<T extends FieldValues>({ control, name, label, typ
               value={field.value ?? ""}
               id={id}
               type={isPassword && visible ? "text" : type}
-              placeholder=" "
+              placeholder={label}
               autoComplete={autoComplete}
               autoFocus={autoFocus}
               autoCapitalize="off"
@@ -40,16 +40,10 @@ export function FloatingField<T extends FieldValues>({ control, name, label, typ
               aria-invalid={fieldState.invalid}
               aria-describedby={fieldState.error ? `${id}-error` : undefined}
               className={cn(
-                "peer h-14 w-full rounded-lg border border-input bg-background px-4 pt-5 pb-1.5 text-[15px] transition-[border-color,box-shadow] outline-none focus:border-foreground focus:ring-1 focus:ring-foreground aria-invalid:border-destructive aria-invalid:ring-destructive aria-invalid:focus:ring-1",
+                "peer h-14 w-full rounded-lg border border-input bg-background px-4 text-[15px] transition-[border-color,box-shadow] outline-none placeholder:text-muted-foreground focus:border-foreground focus:ring-1 focus:ring-foreground aria-invalid:border-destructive aria-invalid:ring-destructive aria-invalid:focus:ring-1",
                 isPassword && "pr-12",
               )}
             />
-            <label
-              htmlFor={id}
-              className="pointer-events-none absolute top-2.5 left-4 text-xs text-muted-foreground transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-[15px] peer-focus:top-2.5 peer-focus:translate-y-0 peer-focus:text-xs peer-aria-invalid:text-destructive"
-            >
-              {label}
-            </label>
             {isPassword && (
               <button
                 type="button"

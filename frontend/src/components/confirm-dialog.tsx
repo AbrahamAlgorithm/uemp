@@ -25,6 +25,7 @@ interface ConfirmDialogProps {
   destructive?: boolean;
   reason?: { label: string; placeholder?: string; minLength?: number };
   onConfirm: (reason: string) => Promise<boolean>;
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -36,6 +37,7 @@ export function ConfirmDialog({
   destructive,
   reason,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   const id = useId();
   const [text, setText] = useState("");
@@ -76,6 +78,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         {reason && (
           <Field data-invalid={showError && !!error}>
             <FieldLabel htmlFor={id}>{reason.label}</FieldLabel>

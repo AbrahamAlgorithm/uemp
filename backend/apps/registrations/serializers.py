@@ -70,10 +70,11 @@ class StudentBriefSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email")
     program = serializers.SerializerMethodField()
     department = serializers.SerializerMethodField()
+    faculty = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
-        fields = ["id", "name", "email", "matric_no", "level", "program", "department"]
+        fields = ["id", "name", "email", "matric_no", "level", "program", "department", "faculty"]
 
     def get_program(self, student) -> dict:
         return {"id": student.program_id, "name": student.program.name, "award": student.program.award}
@@ -81,6 +82,10 @@ class StudentBriefSerializer(serializers.ModelSerializer):
     def get_department(self, student) -> dict:
         department = student.program.department
         return {"id": department.id, "name": department.name, "code": department.code}
+
+    def get_faculty(self, student) -> dict:
+        faculty = student.program.department.faculty
+        return {"id": faculty.id, "name": faculty.name, "code": faculty.code}
 
 
 class CourseLineSerializer(serializers.Serializer):

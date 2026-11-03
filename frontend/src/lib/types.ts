@@ -3,6 +3,7 @@ export type UserStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
 export type SemesterName = "FIRST" | "SECOND";
 export type Level = 100 | 200 | 300 | 400 | 500;
 export type SheetStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+export type RegistrationStatus = "SUBMITTED" | "VALIDATED" | "RETURNED";
 export type Grade = "A" | "B" | "C" | "D" | "E" | "F";
 export type Gender = "M" | "F";
 
@@ -58,6 +59,7 @@ export interface Semester {
   id: number;
   name: SemesterName;
   isCurrent: boolean;
+  registrationOpen: boolean;
   session: Ref;
 }
 
@@ -153,46 +155,90 @@ export interface CourseAllocation {
 }
 
 export interface LecturerCourse {
-  allocationId: number;
+  offeringId: number;
   sheetId: number;
   course: CourseSummary;
   semester: Semester;
+  sheetStatus: SheetStatus;
   studentCount: number;
   scoredCount: number;
-  sheetStatus: SheetStatus;
 }
 
-export interface RegistrationOptions {
-  semester: Semester;
-  maxUnits: number;
-  courses: (CourseSummary & { registered: boolean })[];
-}
-
-export interface RegisteredCourse extends CourseSummary {
+export interface RegistrationCourse {
+  offeringId: number;
+  code: string;
+  title: string;
+  units: number;
+  level: Level;
   lecturer: string | null;
-  registeredAt: string;
+  isCarryOver: boolean;
 }
 
-export interface MyCourses {
-  semester: Semester;
-  student: Student;
-  courses: RegisteredCourse[];
-  totalUnits: number;
+export interface RegistrationOption extends RegistrationCourse {
+  isSelected: boolean;
 }
 
-export interface Registration {
+export interface RegistrationFormStatus {
   id: number;
-  student: { id: number; fullName: string; matricNumber: string; level: Level; program: string };
-  course: CourseSummary & { department: CodedRef };
+  status: RegistrationStatus;
+  submittedAt: string;
+  returnReason: string;
+  validatedBy: Ref | null;
+  validatedAt: string | null;
+}
+
+export interface StudentRegistration {
   semester: Semester;
+  registrationOpen: boolean;
+  maxUnits: number;
+  registration: RegistrationFormStatus | null;
+  courses: RegistrationOption[];
+}
+
+export interface RegistrationStudent {
+  id: number;
+  fullName: string;
+  email: string;
+  matricNumber: string;
+  level: Level;
+  program: Ref & { award: string };
+  department: CodedRef;
+  faculty: CodedRef;
+}
+
+export interface RegistrationForm extends RegistrationFormStatus {
+  student: RegistrationStudent;
+  semester: Semester;
+  totalUnits: number;
+  courses: RegistrationCourse[];
+}
+
+export interface RegistrationFormSummary {
+  id: number;
+  status: RegistrationStatus;
+  submittedAt: string;
+  validatedAt: string | null;
+  student: RegistrationStudent;
+  semester: Semester;
+  totalUnits: number;
+  courseCount: number;
+}
+
+export interface OfferingRegistration {
+  id: number;
+  student: RegistrationStudent;
+  offering: { id: number; code: string; title: string; units: number };
+  formId: number;
+  formStatus: RegistrationStatus;
   registeredAt: string;
 }
 
 export interface ResultEntry {
-  studentId: number;
+  registrationId: number;
   matricNumber: string;
   studentName: string;
-  level: Level;
+  department: CodedRef;
+  isCarryOver: boolean;
   ca: number | null;
   exam: number | null;
   total: number | null;
@@ -205,41 +251,65 @@ export type SheetAction = "SUBMITTED" | "APPROVED" | "REJECTED" | "REOPENED";
 export interface SheetEvent {
   at: string;
   action: SheetAction;
-  actor: Ref;
+  actor: Ref | null;
   note: string | null;
 }
 
 export interface ResultSheetSummary {
   id: number;
-  allocationId: number;
+  offeringId: number;
   course: CourseSummary;
   department: CodedRef;
-  lecturer: Ref;
+  lecturer: Ref | null;
   semester: Semester;
   status: SheetStatus;
-  studentCount: number;
-  submittedAt: string | null;
-  reviewedAt: string | null;
+  editable: boolean;
   feedback: string | null;
+  submittedBy: Ref | null;
+  submittedAt: string | null;
+  reviewedBy: Ref | null;
+  reviewedAt: string | null;
+  studentCount: number;
+  scoredCount: number;
 }
 
-export interface ResultSheet extends ResultSheetSummary {
+export interface ResultSubmission extends ResultSheetSummary {
+  timeline: SheetEvent[];
+}
+
+export interface SheetStats {
+  students: number;
+  scored: number;
+  incomplete: number;
+  average: number | null;
+  highest: number | null;
+  lowest: number | null;
+  passRate: number | null;
+  distribution: GradeDistribution;
+}
+
+export interface ResultSheet extends ResultSubmission {
   entries: ResultEntry[];
-  history: SheetEvent[];
+  summary: SheetStats;
 }
 
 export interface ScoreInput {
-  studentId: number;
-  ca: number | null;
-  exam: number | null;
+  registrationId: number;
+  ca?: number | null;
+  exam?: number | null;
 }
 
-export interface CourseResult extends CourseSummary {
-  ca: number;
-  exam: number;
+export interface CourseResult {
+  registrationId: number;
+  code: string;
+  title: string;
+  units: number;
+  ca: number | null;
+  exam: number | null;
   total: number;
   grade: Grade;
   gradePoint: number;
+  isCarryOver: boolean;
 }
 
 export interface SemesterResult {
@@ -247,14 +317,14 @@ export interface SemesterResult {
   courses: CourseResult[];
   units: number;
   gpa: number;
-  cgpa: number;
 }
 
 export interface StudentResults {
-  student: Student;
-  cgpa: number | null;
-  totalUnits: number;
+  student: RegistrationStudent;
   semesters: SemesterResult[];
+  cgpa: number | null;
+  unitsAttempted: number;
+  unitsPassed: number;
 }
 
 export interface StudentDashboard {
