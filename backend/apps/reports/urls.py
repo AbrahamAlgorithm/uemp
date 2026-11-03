@@ -2,6 +2,7 @@ from django.urls import path
 
 from .dashboards import (
     AdminDashboardView,
+    DepartmentActivityView,
     DepartmentDashboardView,
     LecturerDashboardView,
     LecturerSemestersView,
@@ -18,6 +19,7 @@ urlpatterns = [
     path("lecturer/dashboard/", LecturerDashboardView.as_view(), name="lecturer-dashboard"),
     path("lecturer/semesters/", LecturerSemestersView.as_view(), name="lecturer-semesters"),
     path("department/dashboard/", DepartmentDashboardView.as_view(), name="department-dashboard"),
+    path("department/activity/", DepartmentActivityView.as_view(), name="department-activity"),
     path("admin/dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
     path("reports/students/", StudentsReport.as_view(), name="report-students"),
     path("reports/registrations/", RegistrationsReport.as_view(), name="report-registrations"),

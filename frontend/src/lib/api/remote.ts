@@ -552,6 +552,10 @@ export const remoteApi = {
       recentActivity: ((item.recent_activity as Raw[]) ?? []).map(mapAuditRow),
     };
   },
+  getDepartmentActivity: async (page: number): Promise<Page<AuditRow>> => {
+    const data = await get<{ count: number; results: Raw[] }>(`department/activity/${query({ page, page_size: 15 })}`);
+    return { count: data.count, results: data.results.map(mapAuditRow) };
+  },
   getStudents: async (filter: { departmentId?: number; level?: number } = {}) =>
     (await getList<Raw>(`students/${query({ department: filter.departmentId, level: filter.level })}`)).map(mapStudent),
   getStudentLevels: async (departmentId?: number) =>

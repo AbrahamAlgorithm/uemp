@@ -44,6 +44,13 @@ class AuditDetailSerializer(AuditRowSerializer):
         fields = [*AuditRowSerializer.Meta.fields, "before", "after"]
 
 
-def recent_rows(queryset, limit=10):
-    rows = queryset.select_related("actor", "department").order_by("-created_at", "-pk")[:limit]
-    return AuditRowSerializer(rows, many=True).data
+# routine events an activity feed leaves out; the audit log still records them
+ROUTINE_ACTIONS = ("LOGIN", "LOGOUT", "PROFILE_UPDATED", "PASSWORD_CHANGED", "SCORES_SAVED")
+
+
+def feed(queryset):
+    return queryset.exclude(action__in=ROUTINE_ACTIONS).select_related("actor", "department").order_by("-created_at", "-pk")
+
+
+def recent_rows(queryset, limit=3):
+    return AuditRowSerializer(feed(queryset)[:limit], many=True).data

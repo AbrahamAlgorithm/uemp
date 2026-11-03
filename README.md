@@ -96,7 +96,7 @@ Postgres is on port 5433. Demo accounts use `SEED_PASSWORD` (default `Demo@2026`
 
 ```bash
 cd backend && pip install -r requirements.txt
-pytest --cov                                        # 310 tests, 96% coverage
+pytest --cov                                        # 317 tests, 97% coverage
 
 cd ../frontend && npm ci
 npx tsc --noEmit && npm run lint && npm run build

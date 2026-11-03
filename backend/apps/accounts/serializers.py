@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program
 from apps.audit.models import AuditLog
+from apps.audit.serializers import ROUTINE_ACTIONS
 
 from .models import StaffProfile, StudentProfile, User
 
@@ -124,7 +125,7 @@ class UserSerializer(serializers.ModelSerializer):
     def get_recent_activity(self, obj) -> list[dict]:
         return [
             {"id": entry.id, "at": entry.created_at, "action": entry.action, "target": entry.target, "details": entry.details}
-            for entry in AuditLog.objects.filter(actor=obj).order_by("-created_at")[:10]
+            for entry in AuditLog.objects.filter(actor=obj).exclude(action__in=ROUTINE_ACTIONS).order_by("-created_at")[:10]
         ]
 
     def validate(self, attrs):

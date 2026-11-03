@@ -1,5 +1,8 @@
+"use client";
+
 import { ChevronRight, Users } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { EmptyState } from "@/components/states";
 import { Card } from "@/components/ui/card";
@@ -12,6 +15,7 @@ interface StudentLevelsTableProps {
 }
 
 export function StudentLevelsTable({ levels, hrefFor }: StudentLevelsTableProps) {
+  const router = useRouter();
   return (
     <Card className="py-0">
       {levels.length === 0 ? (
@@ -30,9 +34,9 @@ export function StudentLevelsTable({ levels, hrefFor }: StudentLevelsTableProps)
           </TableHeader>
           <TableBody>
             {levels.map((row) => (
-              <TableRow key={row.level} className="cursor-pointer">
+              <TableRow key={row.level} className="cursor-pointer" onClick={() => router.push(hrefFor(row.level))}>
                 <TableCell className="font-medium">
-                  <Link href={hrefFor(row.level)} className="after:absolute after:inset-0 relative block">
+                  <Link href={hrefFor(row.level)} onClick={(event) => event.stopPropagation()} className="block">
                     {row.level} level
                   </Link>
                 </TableCell>

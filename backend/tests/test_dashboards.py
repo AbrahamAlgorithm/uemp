@@ -1,6 +1,8 @@
 import pytest
 
+from apps.accounts.models import User
 from apps.audit.models import AuditLog
+from apps.audit.serializers import ROUTINE_ACTIONS
 from apps.courses.models import Course, CourseOffering
 from apps.results.models import ResultSheet
 
@@ -83,7 +85,7 @@ def test_department_dashboard_awaits_forms_by_student_department(mth301, sign_in
     assert body["counts"]["students"] == 2
 
 
-def test_department_dashboard_lists_the_last_ten_of_its_own_audit_rows(mth301, sign_in, api):
+def test_department_dashboard_previews_the_latest_three_of_its_own_audit_rows(mth301, sign_in, api):
     for number in range(12):
         AuditLog.objects.create(action="UPDATE", entity_type="x", entity_id=str(number), department=mth301["offering"].course.department)
     AuditLog.objects.create(action="UPDATE", entity_type="x", entity_id="csc", department=mth301["csc"].student.program.department)
@@ -91,7 +93,7 @@ def test_department_dashboard_lists_the_last_ten_of_its_own_audit_rows(mth301, s
 
     rows = api.get("/api/department/dashboard/").json()["recent_activity"]
 
-    assert len(rows) == 10
+    assert len(rows) == 3
     assert {row["department"]["code"] for row in rows} == {"MTH"}
 
 
@@ -131,3 +133,55 @@ def test_dashboards_use_a_bounded_number_of_queries(mth301, sign_in, api, django
         sign_in(email)
         with django_assert_max_num_queries(limit):
             assert api.get(f"/api/{path}").status_code == 200
+
+
+def test_activity_feeds_leave_out_routine_events(mth301, people, sign_in, api):
+    department = mth301["offering"].course.department
+    for action in ("LOGIN", "LOGOUT", "PROFILE_UPDATED", "PASSWORD_CHANGED", "SCORES_SAVED"):
+        AuditLog.objects.create(action=action, entity_type="x", entity_id="1", department=department)
+    AuditLog.objects.create(action="RESULTS_SUBMITTED", entity_type="x", entity_id="2", department=department, target="MTH 301")
+    AuditLog.objects.create(action="REGISTRATION_VALIDATED", entity_type="x", entity_id="3", department=department)
+
+    sign_in("admin.mth@uemp.test")
+    department_feed = {row["action"] for row in api.get("/api/department/dashboard/").json()["recent_activity"]}
+    sign_in("superadmin@uemp.test")
+    admin_feed = {row["action"] for row in api.get("/api/admin/dashboard/").json()["recent_activity"]}
+    user = api.get(f"/api/users/{people[User.Role.LECTURER].pk}/").json()
+
+    assert {"RESULTS_SUBMITTED", "REGISTRATION_VALIDATED"} <= department_feed
+    assert {"RESULTS_SUBMITTED", "REGISTRATION_VALIDATED"} <= admin_feed
+    assert not department_feed & set(ROUTINE_ACTIONS) and not admin_feed & set(ROUTINE_ACTIONS)
+    assert not {row["action"] for row in user["recent_activity"]} & set(ROUTINE_ACTIONS)
+
+
+def test_the_audit_log_still_lists_routine_events(mth301, sign_in, api):
+    AuditLog.objects.create(action="LOGIN", entity_type="accounts.user", entity_id="1")
+    sign_in("superadmin@uemp.test")
+
+    actions = {row["action"] for row in api.get("/api/audit-log/").json()["results"]}
+
+    assert "LOGIN" in actions
+
+
+def test_department_activity_lists_everything_notable_in_its_own_department(mth301, sign_in, api):
+    department = mth301["offering"].course.department
+    other = mth301["csc"].student.program.department
+    for number in range(5):
+        AuditLog.objects.create(action="RESULTS_SUBMITTED", entity_type="x", entity_id=str(number), department=department)
+    AuditLog.objects.create(action="LOGIN", entity_type="x", entity_id="login", department=department)
+    AuditLog.objects.create(action="RESULTS_SUBMITTED", entity_type="x", entity_id="csc", department=other)
+    sign_in("admin.mth@uemp.test")
+
+    body = api.get("/api/department/activity/?page_size=4").json()
+
+    assert body["count"] == 5
+    assert len(body["results"]) == 4
+    assert {row["action"] for row in body["results"]} == {"RESULTS_SUBMITTED"}
+    assert {row["department"]["code"] for row in body["results"]} == {"MTH"}
+    assert len(api.get("/api/department/activity/?page_size=4&page=2").json()["results"]) == 1
+
+
+@pytest.mark.parametrize("email", ["student@uemp.test", "lecturer@uemp.test", "superadmin@uemp.test"])
+def test_department_activity_is_for_department_admins_only(mth301, email, sign_in, api):
+    sign_in(email)
+    assert api.get("/api/department/activity/").status_code == 403

@@ -204,3 +204,19 @@ def test_managers_read_the_semester_list_but_only_super_admins_change_it(calenda
 
     sign_in("lecturer.mth@uemp.test")
     assert api.get("/api/semesters/").status_code == 403
+
+
+def test_a_create_row_names_the_record_it_created(people, calendar, csc, sign_in, api):
+    from apps.audit.models import AuditLog
+
+    program = people[User.Role.STUDENT].student_profile.program
+    sign_in("admin.csc@uemp.test")
+    body = {
+        "first_name": "Ife", "last_name": "Ade", "email": "ife@uemp.test", "matric_no": "CSC/2025/0050",
+        "program": program.pk, "level": 200, "gender": "F", "initial_password": "Demo@2026x",
+    }
+
+    api.post("/api/students/", body, format="json")
+
+    row = AuditLog.objects.get(action="CREATE", entity_type="accounts.studentprofile")
+    assert row.target == "CSC/2025/0050"

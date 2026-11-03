@@ -52,6 +52,21 @@ const ICONS: Record<string, [LucideIcon, string]> = {
   GRADE_SCALE_RESET: [Scale, MUTED],
 };
 
+const GENERIC = new Set(["CREATE", "UPDATE", "DELETE"]);
+
+const NOUNS: Record<string, string> = {
+  "academics.faculty": "faculty",
+  "academics.department": "department",
+  "academics.program": "program",
+  "academics.academicsession": "session",
+  "academics.semester": "semester",
+  "accounts.user": "user",
+  "accounts.studentprofile": "student",
+  "accounts.staffprofile": "staff member",
+  "courses.course": "course",
+  "courses.courseoffering": "course offering",
+};
+
 export function ActivityFeed({ entries }: { entries: AuditRow[] }) {
   if (entries.length === 0) return <p className="text-sm text-muted-foreground">No activity yet.</p>;
 
@@ -68,9 +83,8 @@ export function ActivityFeed({ entries }: { entries: AuditRow[] }) {
               <p>
                 <span className="font-medium">{entry.actor?.name ?? (entry.actorEmail || "Removed user")}</span>{" "}
                 <span className="text-muted-foreground">{auditActionLabel(entry.action).toLowerCase()}</span>
-                {entry.target && entry.action !== "LOGIN" && entry.action !== "LOGOUT" && (
-                  <span className="font-medium"> {entry.target}</span>
-                )}
+                {GENERIC.has(entry.action) && NOUNS[entry.entityType] && <span className="text-muted-foreground"> {NOUNS[entry.entityType]}</span>}
+                {entry.target && <span className="font-medium"> {entry.target}</span>}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 <time dateTime={entry.at} title={formatDateTime(entry.at)}>

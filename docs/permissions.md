@@ -71,6 +71,7 @@ Cell values: **own** means the signed-in user's own record, **own dept** means r
 | Compare departments report | - | - | - | all |
 | Download a report as CSV | - | - | own dept | all |
 | Read the audit log | - | - | - | all |
+| Read the department activity feed | - | - | own dept | - |
 
 ## How it is enforced
 

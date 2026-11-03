@@ -45,7 +45,8 @@ def record(actor, action, entity, before=None, after=None, request=None, target=
         entity_type=entity._meta.label_lower,
         # a model class stands for the whole table, as with the grading scale
         entity_id=str(entity.pk) if isinstance(entity, models.Model) else "",
-        target=target,
+        # rows that name nothing explicitly still say which record they are about
+        target=target or (str(entity) if isinstance(entity, models.Model) else ""),
         details=details,
         department=department_of(entity, actor),
         before=before,

@@ -9,7 +9,7 @@ import { StatCard, StatGrid } from "@/components/stat-card";
 import { ErrorState, PageSkeleton } from "@/components/states";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { semesterLabel } from "@/lib/format";
@@ -81,6 +81,11 @@ export default function DepartmentDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent activity</CardTitle>
+            <CardAction>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/department/activity">See all</Link>
+              </Button>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <ActivityFeed entries={data.recentActivity} />

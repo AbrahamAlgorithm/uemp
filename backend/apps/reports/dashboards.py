@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.academics.models import Department, Faculty, Semester
 from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.audit.models import AuditLog
-from apps.audit.serializers import recent_rows
+from apps.audit.serializers import AuditRowSerializer, feed, recent_rows
 from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import SemesterRegistration
 from apps.registrations.serializers import SemesterBriefSerializer
@@ -17,6 +17,7 @@ from apps.results.models import ResultSheet
 from apps.results.records import NOT_SUBMITTED, Transcript
 from apps.results.serializers import course_ref
 from core.permissions import IsDeptAdmin, IsLecturer, IsStudent, IsSuperAdmin
+from core.viewsets import PagePagination
 
 Sheet = ResultSheet.Status
 Form = SemesterRegistration.Status
@@ -155,6 +156,16 @@ class DepartmentDashboardView(APIView):
                 "recent_activity": recent_rows(AuditLog.objects.filter(department=department)),
             }
         )
+
+
+class DepartmentActivityView(APIView):
+    permission_classes = [IsDeptAdmin]
+
+    @extend_schema(summary="Everything notable that happened in the admin's department, newest first", responses={200: None})
+    def get(self, request):
+        paginator = PagePagination()
+        page = paginator.paginate_queryset(feed(AuditLog.objects.filter(department=request.user.department)), request, view=self)
+        return paginator.get_paginated_response(AuditRowSerializer(page, many=True).data)
 
 
 class AdminDashboardView(APIView):
