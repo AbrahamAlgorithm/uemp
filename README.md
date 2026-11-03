@@ -1,6 +1,6 @@
 # UEMP: University Education Management Portal
 
-UEMP is a web portal for running a university's academic records: students register for courses, lecturers enter results, departments review and approve them, and administrators manage the whole process. Each of those roles gets its own area. This repository is a monorepo with a Django REST API and a Next.js frontend, deployed as two Google Cloud Run services backed by Cloud SQL for PostgreSQL. The frontend for all four roles is built and currently runs on in-browser mock data behind a single API layer; the Django endpoints are next.
+UEMP is a web portal for running a university's academic records: students register for courses, lecturers enter results, departments review and approve them, and administrators manage the whole process. Each of those roles gets its own area. This repository is a monorepo with a Django REST API and a Next.js frontend, deployed as two Google Cloud Run services backed by Cloud SQL for PostgreSQL. The frontend for all four roles is built. Sign-in runs against the Django API with cookie-based JWT auth; the other pages still use in-browser mock data behind a single API layer until their endpoints exist.
 
 ## Stack
 
@@ -73,11 +73,11 @@ docker compose exec api python manage.py seed_demo           # safe to run again
 docker compose exec api python manage.py seed_demo --reset   # wipe the demo rows first
 ```
 
-This loads two faculties, three departments, the 2025/2026 and 2026/2027 sessions, courses, registrations and result sheets in every state, and 31 accounts on the `uemp.test` domain. Every account uses the password in `SEED_PASSWORD` (default `Demo@2026`), and the command prints the full list of logins when it finishes. `superadmin@uemp.test` can also sign in to the Django admin.
+Run it once before signing in to the web app. It loads two faculties, three departments, sessions from 2022/2023 to 2026/2027 (only the last two have semesters), courses, registrations and result sheets in every state, and 31 accounts on the `uemp.test` domain. Every account uses the password in `SEED_PASSWORD` (default `Demo@2026`), and the command prints the full list of logins when it finishes. `superadmin@uemp.test` can also sign in to the Django admin.
 
 ### Mock data
 
-With `NEXT_PUBLIC_USE_MOCKS=true` (the default in compose and `npm run dev`) the UI reads and writes an in-browser copy of the seed data in `frontend/src/lib/mock`, so changes last until the page is reloaded. Pages only import from `lib/api`; `lib/api/remote.ts` lists the endpoints the UI expects, and setting the flag to `false` switches every page to them.
+With `NEXT_PUBLIC_USE_MOCKS=true` (the default in compose and `npm run dev`) the UI reads and writes an in-browser copy of the seed data in `frontend/src/lib/mock`, so changes last until the page is reloaded. Sign-in, sign-out and the session always go to Django; once you are signed in, mock pages show the demo user for your role. Pages only import from `lib/api`; `lib/api/remote.ts` lists the endpoints the UI expects, and setting the flag to `false` switches every page to them.
 
 ### Backend tests
 
@@ -105,14 +105,16 @@ npm run build
 
 ## Test Credentials
 
-Demo accounts while mock data is on. Sign in with the staff or student ID; the password for all of them is `password123`. Account activation and password reset accept the email below, and the emailed code is always `246810`.
+Created by `seed_demo` (see [Demo data](#demo-data)). Sign in with the email, matric number or staff ID, in any letter case; the password for all of them is `Demo@2026` unless `SEED_PASSWORD` was set. The command prints all 31 accounts.
 
-| Role             | Staff/Student ID | Email                                      |
-| ---------------- | ---------------- | ------------------------------------------ |
-| Student          | CSC/2024/0369    | chiamaka.okafor@student.crestview.edu.ng   |
-| Lecturer         | CVU/CSC/073      | a.ogunleye@crestview.edu.ng                |
-| Department admin | CVU/CSC/017      | csc.admin@crestview.edu.ng                 |
-| Super admin      | CVU/REG/010      | registry@crestview.edu.ng                  |
+| Role             | Matric no. / Staff ID | Email                   |
+| ---------------- | --------------------- | ----------------------- |
+| Student          | CSC/2024/0001         | student1@uemp.test      |
+| Lecturer         | CVU/CSC/073           | lecturer1.csc@uemp.test |
+| Department admin | CVU/CSC/017           | admin.csc@uemp.test     |
+| Super admin      | CVU/REG/010           | superadmin@uemp.test    |
+
+Account activation and password reset are still mock flows: they use the accounts listed on those pages, the emailed code is always `246810`, and they don't change the real sign-in.
 
 ## Architecture
 
