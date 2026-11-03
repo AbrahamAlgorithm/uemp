@@ -1,10 +1,15 @@
 "use client";
 
+import { Pencil } from "lucide-react";
+import { useState } from "react";
+
 import { ChangePasswordButton } from "@/components/change-password";
+import { StudentProfileDialog } from "@/components/forms/profile-form-dialog";
 import { DetailList } from "@/components/detail-list";
 import { PageHeader } from "@/components/page-header";
 import { ErrorState, PageSkeleton } from "@/components/states";
 import { UserStatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
@@ -12,6 +17,7 @@ import { formatDate } from "@/lib/format";
 
 export default function StudentProfilePage() {
   const { data, error, reload } = useAsync(api.getStudentProfile);
+  const [editing, setEditing] = useState(false);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton rows={6} />;
@@ -20,8 +26,16 @@ export default function StudentProfilePage() {
     <>
       <PageHeader
         title="Profile"
-        description="Your department handles changes to these details."
-        actions={<ChangePasswordButton />}
+        description="You can edit your phone number, address and date of birth. Your department manages everything else."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Pencil />
+              Edit personal details
+            </Button>
+            <ChangePasswordButton />
+          </>
+        }
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -60,6 +74,16 @@ export default function StudentProfilePage() {
           </CardContent>
         </Card>
       </div>
+      <StudentProfileDialog
+        open={editing}
+        onOpenChange={setEditing}
+        initial={{
+          phone: data.phone,
+          address: data.address,
+          dateOfBirth: data.dateOfBirth && data.dateOfBirth !== "null" ? data.dateOfBirth : "",
+        }}
+        onSaved={reload}
+      />
     </>
   );
 }

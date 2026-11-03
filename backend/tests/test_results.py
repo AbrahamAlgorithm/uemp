@@ -58,7 +58,7 @@ def approved(mth301, sign_in, api):
 
 
 def result_codes(api):
-    body = api.get("/api/student/results/").json()
+    body = api.get("/api/student/results/statement/").json()
     return [course["code"] for semester in body["semesters"] for course in semester["courses"]]
 
 
@@ -203,8 +203,8 @@ def test_changing_the_grade_scale_after_submit_keeps_stored_grades(mth301, sign_
     entry = entry_of(mth301["csc"])
     assert (entry.total, entry.grade, entry.grade_point) == (Decimal(65), "B", Decimal(4))
     sign_in("student@uemp.test")
-    course = api.get("/api/student/results/").json()["semesters"][0]["courses"][0]
-    assert (course["grade"], course["grade_point"]) == ("B", "4.00")
+    course = api.get("/api/student/results/statement/").json()["semesters"][0]["courses"][0]
+    assert (course["grade"], course["grade_point"]) == ("B", 4)
 
 
 def test_review_summary_counts_blanks_as_zero(mth301, sign_in, api):
@@ -217,10 +217,10 @@ def test_review_summary_counts_blanks_as_zero(mth301, sign_in, api):
         "students": 2,
         "scored": 1,
         "incomplete": 1,
-        "average": "47.50",
-        "highest": "75.00",
-        "lowest": "20.00",
-        "pass_rate": "50.00",
+        "average": 47.50,
+        "highest": 75.00,
+        "lowest": 20.00,
+        "pass_rate": 50.00,
         "distribution": {"A": 1, "B": 0, "C": 0, "D": 0, "E": 0, "F": 1},
     }
 
@@ -366,13 +366,13 @@ def test_student_sees_approved_results_with_gpa_counting_both_attempts_of_a_reta
     graded(student, offer("CSC 303", csc, now, lecturer), 20, 30, "C", 3, status=Sheet.SUBMITTED)
     sign_in("student@uemp.test")
 
-    body = api.get("/api/student/results/").json()
+    body = api.get("/api/student/results/statement/").json()
 
     first, second = body["semesters"]
     assert [(c["code"], c["is_carry_over"]) for c in first["courses"]] == [("CSC 201", False), ("CSC 203", False)]
     assert [(c["code"], c["is_carry_over"]) for c in second["courses"]] == [("CSC 201", True), ("CSC 301", False)]
-    assert (first["gpa"], second["gpa"]) == ("1.60", "4.14")
-    assert body["cgpa"] == "3.08"
+    assert (first["gpa"], second["gpa"]) == (1.6, 4.14)
+    assert body["cgpa"] == 3.08
     assert (body["units_attempted"], body["units_passed"]) == (12, 9)
     assert body["student"]["matric_no"] == "CSC/2024/0001"
     assert (gpa(student, now), cgpa(student)) == (Decimal("4.14"), Decimal("3.08"))

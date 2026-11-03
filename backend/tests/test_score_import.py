@@ -6,6 +6,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from openpyxl import Workbook, load_workbook
 
+from apps.accounts.models import User
 from apps.audit.models import AuditLog
 from apps.results.models import ResultEntry, ResultSheet
 
@@ -87,7 +88,7 @@ def test_a_dry_run_reports_without_writing(mth301, lecturer, api):
         "name": "Ada Obi",
         "status": "change",
         "ca_before": None,
-        "ca_after": "20.00",
+        "ca_after": 20.00,
         "exam_before": None,
         "exam_after": None,
         "error": None,
@@ -238,3 +239,15 @@ def test_a_workbook_with_too_many_rows_is_refused(mth301, lecturer, api):
     response = upload(api, mth301["offering"], buffer.getvalue(), name="big.xlsx")
 
     assert response.json() == {"file": "The file has more than 5000 rows."}
+
+
+@pytest.mark.parametrize("extension", ["csv", "xlsx"])
+def test_a_name_that_looks_like_a_formula_is_exported_as_text(mth301, extension, sign_in, api):
+    User.objects.filter(email="maths@uemp.test").update(first_name="=HYPERLINK(1)", last_name="x")
+    sign_in("lecturer.mth@uemp.test")
+
+    response = api.get(f"/api/lecturer/offerings/{mth301['offering'].pk}/sheet/template/?format={extension}")
+
+    assert response.status_code == 200
+    text = response.content.decode("utf-8-sig") if extension == "csv" else load_workbook(io.BytesIO(response.content))["Scores"]["B3"].value
+    assert "'=HYPERLINK(1) x" in text

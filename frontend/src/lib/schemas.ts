@@ -2,10 +2,27 @@ import { z } from "zod";
 
 import { GRADES } from "./grading";
 
+// spaces between digits are allowed, the api stores the number without them
 const phone = z
   .string()
   .trim()
-  .regex(/^(\+234|0)[789][01]\d{8}$/, "Enter a valid Nigerian phone number, e.g. 08031234567");
+  .regex(/^(\+234|0)[789][01](\s?\d){8}$/, "Enter a valid Nigerian phone number, e.g. 08031234567");
+
+const MINIMUM_AGE = 14;
+
+function validBirthDate(value: string) {
+  const born = new Date(value);
+  if (Number.isNaN(born.getTime())) return "Enter a valid date";
+  const today = new Date();
+  if (born >= today) return "Date of birth must be in the past";
+  const oldEnough = new Date(born.getFullYear() + MINIMUM_AGE, born.getMonth(), born.getDate()) <= today;
+  return oldEnough ? null : `You must be at least ${MINIMUM_AGE} years old`;
+}
+
+const dateOfBirth = z.string().min(1, "Enter your date of birth").superRefine((value, ctx) => {
+  const problem = value ? validBirthDate(value) : null;
+  if (problem) ctx.addIssue({ code: "custom", message: problem });
+});
 
 const requiredText = (label: string, max = 120) =>
   z.string().trim().min(1, `${label} is required`).max(max, `${label} is too long`);
@@ -17,6 +34,18 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Required."),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const studentContactSchema = z.object({
+  phone,
+  address: z.string().trim().max(255, "Address is too long"),
+  dateOfBirth,
+});
+export type StudentContactInput = z.infer<typeof studentContactSchema>;
+
+export const staffContactSchema = z.object({ phone });
+export type StaffContactInput = z.infer<typeof staffContactSchema>;
+
+export type ProfileInput = Partial<StudentContactInput>;
 
 export const changePasswordSchema = z
   .object({

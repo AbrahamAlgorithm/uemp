@@ -95,7 +95,7 @@ class SemesterViewSet(SuperAdminViewSet):
                 action_name = "REGISTRATION_WINDOW_CLOSED"
             audit.record(self.request.user, action_name, semester, before=before, after=snapshot(semester), request=self.request)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="set-current", url_name="set-current")
     def set_current(self, request, pk=None):
         with transaction.atomic():
             semester = Semester.objects.select_for_update().get(pk=self.get_object().pk)
@@ -114,10 +114,22 @@ class ProgramViewSet(ScopedViewSet):
     search_fields = ("name", "award")
     filter_fields = ("department",)
 
+    # a department admin works in their own department, whatever department the request names
+    def perform_create(self, serializer):
+        if self.request.user.role == User.Role.DEPT_ADMIN:
+            serializer.validated_data["department"] = self.request.user.department
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        if self.request.user.role == User.Role.DEPT_ADMIN:
+            serializer.validated_data["department"] = self.request.user.department
+        super().perform_update(serializer)
+
 
 class CurrentSemesterView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(summary="The semester marked as current", responses=SemesterSerializer)
     def get(self, request):
         semester = Semester.objects.select_related("session").filter(is_current=True).first()
         if not semester:

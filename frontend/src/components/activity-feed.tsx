@@ -44,6 +44,7 @@ const ICONS: Record<string, [LucideIcon, string]> = {
   RESULTS_APPROVED: [CircleCheck, GREEN],
   RESULTS_REJECTED: [CircleX, RED],
   RESULTS_REOPENED: [RotateCcw, ORANGE],
+  PROFILE_UPDATED: [PencilLine, BLUE],
   CHANGE_STATUS: [ShieldCheck, RED],
   CHANGE_ROLE: [ShieldCheck, BLUE],
   SEMESTER_SET_CURRENT: [CalendarCog, MUTED],

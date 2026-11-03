@@ -1,11 +1,16 @@
 "use client";
 
+import { Pencil } from "lucide-react";
+import { useState } from "react";
+
 import { ChangePasswordButton } from "@/components/change-password";
+import { StaffProfileDialog } from "@/components/forms/profile-form-dialog";
 import { DetailList } from "@/components/detail-list";
 import { PageHeader } from "@/components/page-header";
 import { ErrorState, PageSkeleton } from "@/components/states";
 import { UserStatusBadge } from "@/components/status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
@@ -14,13 +19,26 @@ import { initials } from "@/lib/format";
 
 export function StaffProfileView() {
   const { data, error, reload } = useAsync(api.getStaffProfile);
+  const [editing, setEditing] = useState(false);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton rows={4} />;
 
   return (
     <>
-      <PageHeader title="My profile" description="Contact the registry to change any of these details." actions={<ChangePasswordButton />} />
+      <PageHeader
+        title="My profile"
+        description="You can edit your phone number. An administrator manages everything else."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Pencil />
+              Edit personal details
+            </Button>
+            <ChangePasswordButton />
+          </>
+        }
+      />
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-4 text-center">
@@ -52,6 +70,7 @@ export function StaffProfileView() {
           </CardContent>
         </Card>
       </div>
+      <StaffProfileDialog open={editing} onOpenChange={setEditing} initial={{ phone: data.phone }} onSaved={reload} />
     </>
   );
 }

@@ -54,6 +54,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   CREATE: "Created",
   UPDATE: "Updated",
   DELETE: "Deleted",
+  PROFILE_UPDATED: "Updated profile",
   PASSWORD_CHANGED: "Changed password",
   PASSWORD_RESET: "Reset password",
   CHANGE_STATUS: "Changed status",

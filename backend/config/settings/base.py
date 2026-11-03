@@ -100,6 +100,7 @@ CORS_ALLOW_CREDENTIALS = True
 MAX_UNITS_PER_SEMESTER = 24
 
 REST_FRAMEWORK = {
+    "COERCE_DECIMAL_TO_STRING": False,
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "apps.accounts.authentication.CookieJWTAuthentication",
     ],
@@ -139,6 +140,7 @@ SPECTACULAR_SETTINGS = {
         "HealthStateEnum": "core.views.HEALTH_STATES",
         "UserStatusEnum": "apps.accounts.models.User.Status",
         "RegistrationStatusEnum": "apps.registrations.models.SemesterRegistration.Status",
+        "SheetStatusEnum": "apps.results.models.ResultSheet.Status",
     },
 }
 

@@ -13,7 +13,7 @@ class FacultySerializer(serializers.ModelSerializer):
         model = Faculty
         fields = ["id", "name", "code", "department_count", "student_count"]
 
-    def get_student_count(self, obj):
+    def get_student_count(self, obj) -> int:
         return StudentProfile.objects.filter(program__department__faculty=obj).count()
 
 
@@ -28,13 +28,13 @@ class DepartmentSerializer(serializers.ModelSerializer):
         model = Department
         fields = ["id", "name", "code", "faculty", "faculty_detail", "program_count", "student_count", "lecturer_count"]
 
-    def get_faculty_detail(self, obj):
+    def get_faculty_detail(self, obj) -> dict:
         return {"id": obj.faculty_id, "name": obj.faculty.name, "code": obj.faculty.code}
 
-    def get_student_count(self, obj):
+    def get_student_count(self, obj) -> int:
         return StudentProfile.objects.filter(program__department=obj).count()
 
-    def get_lecturer_count(self, obj):
+    def get_lecturer_count(self, obj) -> int:
         return User.objects.filter(department=obj, role=User.Role.LECTURER).count()
 
 
@@ -46,10 +46,10 @@ class SessionSerializer(serializers.ModelSerializer):
         model = AcademicSession
         fields = ["id", "name", "start_date", "end_date", "is_current", "semesters"]
 
-    def get_semesters(self, obj):
+    def get_semesters(self, obj) -> list[dict]:
         return SemesterSerializer(obj.semesters.all(), many=True).data
 
-    def get_is_current(self, obj):
+    def get_is_current(self, obj) -> bool:
         return obj.semesters.filter(is_current=True).exists()
 
 
@@ -61,7 +61,7 @@ class SemesterSerializer(serializers.ModelSerializer):
         model = Semester
         fields = ["id", "session", "session_detail", "term", "is_current", "registration_open"]
 
-    def get_session_detail(self, obj):
+    def get_session_detail(self, obj) -> dict:
         return {"id": obj.session_id, "name": obj.session.name}
 
 
@@ -79,13 +79,13 @@ class ProgramSerializer(serializers.ModelSerializer):
             "levels", "students_by_level", "course_count",
         ]
 
-    def get_department_detail(self, obj):
+    def get_department_detail(self, obj) -> dict:
         return {"id": obj.department_id, "name": obj.department.name, "code": obj.department.code}
 
-    def get_levels(self, obj):
+    def get_levels(self, obj) -> list[int]:
         return list(range(100, (obj.duration_years + 1) * 100, 100))
 
-    def get_students_by_level(self, obj):
+    def get_students_by_level(self, obj) -> list[dict]:
         return [
             {"level": level, "count": obj.students.filter(level=level).count()}
             for level in (100, 200, 300, 400, 500)

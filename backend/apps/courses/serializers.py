@@ -16,10 +16,10 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = ["id", "code", "title", "units", "level", "semester", "department", "department_detail", "programs", "program_details"]
 
-    def get_department_detail(self, obj):
+    def get_department_detail(self, obj) -> dict:
         return {"id": obj.department_id, "name": obj.department.name, "code": obj.department.code}
 
-    def get_program_details(self, obj):
+    def get_program_details(self, obj) -> list[dict]:
         return [{"id": program.id, "name": program.name} for program in obj.programs.all()]
 
 
@@ -33,7 +33,7 @@ class OfferingSerializer(serializers.ModelSerializer):
         model = CourseOffering
         fields = ["id", "course", "course_detail", "semester", "semester_detail", "lecturer", "lecturer_detail", "sheet_status"]
 
-    def get_course_detail(self, obj):
+    def get_course_detail(self, obj) -> dict:
         department = obj.course.department
         return {
             "id": obj.course_id,
@@ -44,10 +44,10 @@ class OfferingSerializer(serializers.ModelSerializer):
             "level": obj.course.level,
         }
 
-    def get_semester_detail(self, obj):
+    def get_semester_detail(self, obj) -> dict:
         return {"id": obj.semester_id, "term": obj.semester.term, "session": obj.semester.session_id, "is_current": obj.semester.is_current}
 
-    def get_lecturer_detail(self, obj):
+    def get_lecturer_detail(self, obj) -> dict | None:
         if not obj.lecturer:
             return None
         return {"id": obj.lecturer_id, "staff_id": obj.lecturer.staff_id, "name": obj.lecturer.user.get_full_name()}

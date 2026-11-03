@@ -27,12 +27,12 @@ def test_any_signed_in_user_reads_the_national_default(people, sign_in, api):
 
     assert body["is_default"] is True
     assert [(band["grade"], band["min"], band["max"], band["point"]) for band in body["bands"]] == [
-        ("A", 70, 100, "5.00"),
-        ("B", 60, 69, "4.00"),
-        ("C", 50, 59, "3.00"),
-        ("D", 45, 49, "2.00"),
-        ("E", 40, 44, "1.00"),
-        ("F", 0, 39, "0.00"),
+        ("A", 70, 100, 5.00),
+        ("B", 60, 69, 4.00),
+        ("C", 50, 59, 3.00),
+        ("D", 45, 49, 2.00),
+        ("E", 40, 44, 1.00),
+        ("F", 0, 39, 0.00),
     ]
 
 
@@ -92,7 +92,7 @@ def test_a_confirmed_change_replaces_every_band_and_is_audited(people, sign_in, 
 
     assert response.status_code == 200
     assert response.json()["is_default"] is False
-    assert response.json()["bands"][0] == {"grade": "A", "min": 65, "max": 100, "point": "5.00"}
+    assert response.json()["bands"][0] == {"grade": "A", "min": 65, "max": 100, "point": 5.00}
     assert GradeScale.objects.count() == 6 and grade_for(66).grade == "A"
     row = AuditLog.objects.get(action="GRADE_SCALE_UPDATED")
     assert (row.entity_type, row.entity_id, row.actor_email) == ("results.gradescale", "", "superadmin@uemp.test")

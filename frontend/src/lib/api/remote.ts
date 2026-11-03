@@ -4,6 +4,7 @@ import type {
   FacultyInput,
   LecturerInput,
   LoginInput,
+  ProfileInput,
   ProgramInput,
   SessionInput,
   StudentInput,
@@ -248,7 +249,7 @@ const mapOfferingRegistration = (item: Raw): OfferingRegistration => {
     registeredAt: String(item.registered_at),
   };
 };
-const num = (value: unknown) => (value === null || value === undefined ? null : Number(value));
+const num = (value: unknown) => (value as number | null | undefined) ?? null;
 const person = (value: unknown) => {
   const item = value as Raw | null;
   return item ? { id: Number(item.id), name: String(item.name) } : null;
@@ -288,20 +289,20 @@ const mapSheet = (item: Raw): ResultSheet => ({
 });
 const mapCourseResult = (item: Raw): CourseResult => ({
   registrationId: Number(item.registration_id), code: String(item.code), title: String(item.title), units: Number(item.units),
-  ca: num(item.ca_score), exam: num(item.exam_score), total: Number(item.total), grade: item.grade as Grade,
-  gradePoint: Number(item.grade_point),
+  ca: num(item.ca_score), exam: num(item.exam_score), total: item.total as number, grade: item.grade as Grade,
+  gradePoint: item.grade_point as number,
   isCarryOver: Boolean(item.is_carry_over),
 });
 const mapStudentResults = (item: Raw): StudentResults => ({
   student: mapRegistrationStudent(item.student as Raw),
   semesters: ((item.semesters as Raw[]) ?? []).map((result) => ({
     semester: mapSemester(result.semester as Raw), courses: ((result.courses as Raw[]) ?? []).map(mapCourseResult),
-    units: Number(result.units), gpa: Number(result.gpa),
+    units: Number(result.units), gpa: result.gpa as number,
   })),
   cgpa: num(item.cgpa), unitsAttempted: Number(item.units_attempted), unitsPassed: Number(item.units_passed),
 });
 const mapGradeBand = (item: Raw): GradeBand => ({
-  grade: item.grade as Grade, min: Number(item.min), max: Number(item.max), point: Number(item.point),
+  grade: item.grade as Grade, min: Number(item.min), max: Number(item.max), point: item.point as number,
 });
 const mapGradeScale = (item: Raw): GradeScale => ({
   bands: ((item.bands as Raw[]) ?? []).map(mapGradeBand), isDefault: Boolean(item.is_default),
@@ -437,6 +438,12 @@ export const remoteApi = {
       entrySession: String(entry?.name ?? ""),
     };
   },
+  updateProfile: (input: ProfileInput) =>
+    patch<MeResponse>("auth/me/profile/", {
+      ...(input.phone !== undefined ? { phone: input.phone } : {}),
+      ...(input.address !== undefined ? { address: input.address } : {}),
+      ...(input.dateOfBirth !== undefined ? { date_of_birth: input.dateOfBirth } : {}),
+    }),
   getStaffProfile: async (): Promise<StaffProfile> => {
     const me = await get<ProfileResponse>("auth/me/");
     const profile = (me.profile ?? {}) as Raw;

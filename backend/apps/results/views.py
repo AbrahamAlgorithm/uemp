@@ -10,9 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.courses.models import CourseOffering
-from apps.registrations.views import int_param, semester_in_progress, student_of
+from apps.registrations.views import int_param, semester_in_progress
 from core.negotiation import FormatIsFileType
-from core.permissions import MANAGERS, HasRole, IsDeptAdmin, IsLecturer, IsStudent, IsSuperAdmin
+from core.permissions import MANAGERS, HasRole, IsDeptAdmin, IsLecturer, IsSuperAdmin
 from core.scoping import DepartmentScopedQuerysetMixin
 from core.viewsets import PagePagination
 
@@ -31,7 +31,6 @@ from .serializers import (
     SaveScoresSerializer,
     SheetDetailSerializer,
     SheetSummarySerializer,
-    StudentResultsSerializer,
     SubmissionSerializer,
     SubmitSheetSerializer,
     UpdateScaleSerializer,
@@ -334,11 +333,3 @@ def student_results(student):
         "units_attempted": sum(line["units"] for line in lines),
         "units_passed": sum(line["units"] for line in lines if line["grade"] != FAIL),
     }
-
-
-class StudentResultsView(APIView):
-    permission_classes = [IsStudent]
-
-    @extend_schema(summary="The student's approved results by semester, with GPA and CGPA", responses=StudentResultsSerializer)
-    def get(self, request):
-        return Response(StudentResultsSerializer(student_results(student_of(request))).data)

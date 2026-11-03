@@ -35,6 +35,7 @@ from .serializers import (
     ChangePasswordSerializer,
     LoginSerializer,
     MeSerializer,
+    ProfileUpdateSerializer,
     StaffSerializer,
     StudentSerializer,
     UserSerializer,
@@ -179,7 +180,86 @@ class MeView(APIView):
         return Response(MeSerializer(me_queryset().get(pk=request.user.pk)).data)
 
 
-class StudentViewSet(ScopedViewSet):
+STUDENT_EDITABLE = ("phone", "address", "date_of_birth")
+STAFF_EDITABLE = ("phone",)
+ADMIN_ONLY = "This field can only be changed by an administrator."
+
+
+def plain(value):
+    return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+class ProfileView(APIView):
+    @extend_schema(
+        summary="Update the signed-in user's own contact details",
+        request=ProfileUpdateSerializer,
+        responses={200: MeSerializer, 400: OpenApiResponse(description="A field users may not change, or an invalid value")},
+    )
+    def patch(self, request):
+        user = request.user
+        profile = getattr(user, "student_profile", None) or getattr(user, "staff_profile", None)
+        if profile is None:
+            raise Http404("This account has no profile.")
+        editable = STUDENT_EDITABLE if isinstance(profile, StudentProfile) else STAFF_EDITABLE
+        if not isinstance(request.data, dict):
+            raise ValidationError({"detail": "Send a JSON object."})
+        refused = {name: [ADMIN_ONLY] for name in request.data if name not in editable}
+        if refused:
+            raise ValidationError(refused)
+        serializer = ProfileUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        if not values:
+            raise ValidationError({"detail": "Send at least one field to update."})
+
+        changed = [name for name, value in values.items() if getattr(profile, name) != value]
+        if changed:
+            before = {name: getattr(profile, name) for name in changed}
+            for name in changed:
+                setattr(profile, name, values[name])
+            with transaction.atomic():
+                profile.save(update_fields=[*changed, "updated_at"])
+                audit.record(
+                    user,
+                    "PROFILE_UPDATED",
+                    profile,
+                    before={name: plain(value) for name, value in before.items()},
+                    after={name: plain(values[name]) for name in changed},
+                    request=request,
+                    target=identifier_of(user),
+                    details=", ".join(changed),
+                )
+        return Response(MeSerializer(me_queryset().get(pk=user.pk)).data)
+
+
+IDENTITY_FIELDS = ("email", "first_name", "last_name")
+STAFF_ROLES = (User.Role.LECTURER, User.Role.DEPT_ADMIN, User.Role.SUPER_ADMIN)
+
+
+def identity(user):
+    return {name: getattr(user, name) for name in IDENTITY_FIELDS}
+
+
+def apply_identity(profile, user_data):
+    """Save the name and email edited on a profile form; the role never changes here."""
+    user = profile.user
+    if "email" in user_data and User.objects.filter(email__iexact=user_data["email"]).exclude(pk=user.pk).exists():
+        raise ValidationError({"email": "An account with this email already exists."})
+    for name in IDENTITY_FIELDS:
+        if name in user_data:
+            setattr(user, name, user_data[name])
+    user.save(update_fields=[*IDENTITY_FIELDS, "updated_at"])
+
+
+class KeepAccountsMixin:
+    # accounts are deactivated, never deleted, so what they did stays attributable
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Accounts can't be deleted. Deactivate the account instead."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+
+class StudentViewSet(KeepAccountsMixin, ScopedViewSet):
     queryset = StudentProfile.objects.select_related("user", "program__department__faculty", "entry_session").all().order_by("matric_no")
     serializer_class = StudentSerializer
     department_lookup = "program__department"
@@ -261,19 +341,27 @@ class StudentViewSet(ScopedViewSet):
     def perform_update(self, serializer):
         profile = self.get_object()
         before = snapshot(profile)
+        old_user = User(**identity(profile.user))
         user_data = serializer.validated_data.pop("user", {})
         serializer.validated_data.pop("initial_password", None)
         program = serializer.validated_data.get("program", profile.program)
         if department_scope(self.request.user) is not None and program.department_id != self.request.user.department_id:
             raise Http404
         with transaction.atomic():
-            if user_data:
-                User.objects.filter(pk=profile.user_id).update(**user_data)
+            apply_identity(profile, user_data)
+            renamed = identity(profile.user)
             profile = serializer.save()
-            audit.record(self.request.user, "UPDATE", profile, before=before, after=snapshot(profile), request=self.request)
+            audit.record(
+                self.request.user,
+                "UPDATE",
+                profile,
+                before={**before, **identity(old_user)},
+                after={**snapshot(profile), **renamed},
+                request=self.request,
+            )
 
 
-class StaffViewSet(ScopedViewSet):
+class StaffViewSet(KeepAccountsMixin, ScopedViewSet):
     queryset = StaffProfile.objects.select_related("user__department__faculty").all().order_by("staff_id")
     serializer_class = StaffSerializer
     department_lookup = "user__department"
@@ -282,9 +370,11 @@ class StaffViewSet(ScopedViewSet):
 
     def get_queryset(self):
         current = CourseOffering.objects.filter(semester__is_current=True).select_related("course")
-        return super().get_queryset().prefetch_related(
-            Prefetch("offerings", queryset=current, to_attr="current_offering_rows")
-        )
+        queryset = super().get_queryset().prefetch_related(Prefetch("offerings", queryset=current, to_attr="current_offering_rows"))
+        # department admins manage lecturers; other admins are the super admin's to manage
+        if self.request.user.role == User.Role.DEPT_ADMIN:
+            queryset = queryset.filter(user__role=User.Role.LECTURER)
+        return queryset
 
     def filter_queryset(self, queryset):
         role = self.request.query_params.get("role")
@@ -301,6 +391,8 @@ class StaffViewSet(ScopedViewSet):
         data = serializer.validated_data
         user_data = data.pop("user")
         role = user_data.pop("role")
+        if role not in STAFF_ROLES:
+            raise ValidationError({"role": "Choose lecturer, department admin or super admin."})
         department = request.user.department if request.user.role == User.Role.DEPT_ADMIN else request.data.get("department")
         if request.user.role == User.Role.DEPT_ADMIN and role != User.Role.LECTURER:
             raise PermissionDenied("Department admins can only create lecturers.")
@@ -322,13 +414,24 @@ class StaffViewSet(ScopedViewSet):
     def perform_update(self, serializer):
         profile = self.get_object()
         before = snapshot(profile)
+        old_user = User(**identity(profile.user))
         user_data = serializer.validated_data.pop("user", {})
         serializer.validated_data.pop("initial_password", None)
+        # a role changes from the users page, which audits it as CHANGE_ROLE and is super admin only
+        if user_data.pop("role", profile.user.role) != profile.user.role:
+            raise ValidationError({"role": "Roles are changed from the users page by a super admin."})
         with transaction.atomic():
-            if user_data:
-                User.objects.filter(pk=profile.user_id).update(**user_data)
+            apply_identity(profile, user_data)
+            renamed = identity(profile.user)
             profile = serializer.save()
-            audit.record(self.request.user, "UPDATE", profile, before=before, after=snapshot(profile), request=self.request)
+            audit.record(
+                self.request.user,
+                "UPDATE",
+                profile,
+                before={**before, **identity(old_user)},
+                after={**snapshot(profile), **renamed},
+                request=self.request,
+            )
 
 
 class UserViewSet(SuperAdminViewSet):
@@ -386,7 +489,13 @@ class UserViewSet(SuperAdminViewSet):
     def suspend(self, request, pk=None):
         return self._status(request, self.get_object(), User.Status.SUSPENDED)
 
-    @action(detail=True, methods=["post"], permission_classes=[HasRole(*MANAGERS)])
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reset-password",
+        url_name="reset-password",
+        permission_classes=[HasRole(*MANAGERS)],
+    )
     def reset_password(self, request, pk=None):
         target = self.get_object()
         if request.user.role == User.Role.DEPT_ADMIN and (
@@ -412,6 +521,11 @@ class UserViewSet(SuperAdminViewSet):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Change the signed-in user's password",
+        request=ChangePasswordSerializer,
+        responses={200: OpenApiResponse(description="Password changed successfully."), 400: OpenApiResponse(description="Wrong current password or a weak new one")},
+    )
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)

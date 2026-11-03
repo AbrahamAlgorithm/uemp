@@ -7,6 +7,7 @@ from .views import (
     LoginView,
     LogoutView,
     MeView,
+    ProfileView,
     RefreshView,
     StaffViewSet,
     StudentViewSet,
@@ -20,6 +21,7 @@ urlpatterns = [
     path("refresh/", RefreshView.as_view(), name="auth-refresh"),
     path("logout/", LogoutView.as_view(), name="auth-logout"),
     path("me/", MeView.as_view(), name="auth-me"),
+    path("me/profile/", ProfileView.as_view(), name="auth-profile"),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
 ]
 
@@ -30,10 +32,5 @@ router.register("lecturers", StaffViewSet, basename="lecturer")
 router.register("users", UserViewSet, basename="user")
 
 management_urlpatterns = [
-    path(
-        "users/<int:pk>/reset-password/",
-        UserViewSet.as_view({"post": "reset_password"}),
-        name="user-reset-password",
-    ),
     path("", include(router.urls)),
 ]

@@ -7,7 +7,6 @@ from .views import (
     LecturerOfferingViewSet,
     LecturerSubmissionsView,
     ResultSheetViewSet,
-    StudentResultsView,
 )
 
 router = SimpleRouter()
@@ -18,6 +17,5 @@ urlpatterns = [
     path("grade-scale/", GradeScaleView.as_view(), name="grade-scale"),
     path("grade-scale/reset/", GradeScaleResetView.as_view(), name="grade-scale-reset"),
     path("lecturer/submissions/", LecturerSubmissionsView.as_view(), name="lecturer-submissions"),
-    path("student/results/", StudentResultsView.as_view(), name="student-results"),
     path("", include(router.urls)),
 ]

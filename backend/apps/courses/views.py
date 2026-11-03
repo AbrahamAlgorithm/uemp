@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.http import Http404
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -8,6 +9,7 @@ from apps.audit import services as audit
 from apps.audit.services import snapshot
 from apps.registrations.views import int_param
 from apps.results.models import ResultSheet
+from core.scoping import department_scope
 from core.viewsets import ScopedViewSet
 
 from .models import Course, CourseOffering
@@ -64,6 +66,10 @@ class OfferingViewSet(ScopedViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         course = serializer.validated_data["course"]
+        scope = department_scope(request.user)
+        # another department's course is out of scope, so it reads as missing
+        if scope is not None and course.department_id != scope.pk:
+            raise Http404
         self._validate_lecturer(course, serializer.validated_data.get("lecturer"))
         with transaction.atomic():
             offering = serializer.save()
@@ -77,6 +83,10 @@ class OfferingViewSet(ScopedViewSet):
         partial = kwargs.pop("partial", False)
         serializer = self.get_serializer(offering, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get("course", offering.course) != offering.course:
+            raise ValidationError({"course": "The course of an offering can't be changed."})
+        if serializer.validated_data.get("semester", offering.semester) != offering.semester:
+            raise ValidationError({"semester": "The semester of an offering can't be changed."})
         new_lecturer = serializer.validated_data.get("lecturer", offering.lecturer)
         self._validate_lecturer(offering.course, new_lecturer)
         if new_lecturer != offering.lecturer and offering.result_sheet.status != ResultSheet.Status.DRAFT:

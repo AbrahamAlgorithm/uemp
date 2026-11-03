@@ -1,4 +1,8 @@
+import re
+from datetime import date
+
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
 
@@ -95,29 +99,29 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["email", "date_joined", "last_login", "identifier", "phone"]
 
-    def get_department_detail(self, obj):
+    def get_department_detail(self, obj) -> dict | None:
         if not obj.department:
             return None
         return {"id": obj.department_id, "name": obj.department.name, "code": obj.department.code}
 
-    def get_identifier(self, obj):
+    def get_identifier(self, obj) -> str | None:
         profile = getattr(obj, "student_profile", None) or getattr(obj, "staff_profile", None)
         return getattr(profile, "matric_no", None) or getattr(profile, "staff_id", None)
 
-    def get_phone(self, obj):
+    def get_phone(self, obj) -> str:
         return getattr(getattr(obj, "student_profile", None), "phone", None) or getattr(
             getattr(obj, "staff_profile", None), "phone", ""
         )
 
-    def get_student(self, obj):
+    def get_student(self, obj) -> dict | None:
         profile = getattr(obj, "student_profile", None)
         return StudentSerializer(profile).data if profile else None
 
-    def get_staff(self, obj):
+    def get_staff(self, obj) -> dict | None:
         profile = getattr(obj, "staff_profile", None)
         return StaffSerializer(profile).data if profile else None
 
-    def get_recent_activity(self, obj):
+    def get_recent_activity(self, obj) -> list[dict]:
         return [
             {"id": entry.id, "at": entry.created_at, "action": entry.action, "target": entry.target, "details": entry.details}
             for entry in AuditLog.objects.filter(actor=obj).order_by("-created_at")[:10]
@@ -152,18 +156,18 @@ class StudentSerializer(serializers.ModelSerializer):
             "program_detail", "department", "faculty", "initial_password",
         ]
 
-    def get_department(self, obj):
+    def get_department(self, obj) -> dict:
         d = obj.program.department
         return {"id": d.id, "name": d.name, "code": d.code}
 
-    def get_faculty(self, obj):
+    def get_faculty(self, obj) -> dict:
         f = obj.program.department.faculty
         return {"id": f.id, "name": f.name, "code": f.code}
 
-    def get_program_detail(self, obj):
+    def get_program_detail(self, obj) -> dict:
         return {"id": obj.program_id, "name": obj.program.name, "award": obj.program.award}
 
-    def get_entry_session_detail(self, obj):
+    def get_entry_session_detail(self, obj) -> dict | None:
         return {"id": obj.entry_session_id, "name": obj.entry_session.name} if obj.entry_session_id else None
 
     def validate_initial_password(self, value):
@@ -206,11 +210,11 @@ class StaffSerializer(serializers.ModelSerializer):
     def get_total_units(self, obj) -> int:
         return sum(offering.course.units for offering in self._offerings(obj))
 
-    def get_department(self, obj):
+    def get_department(self, obj) -> dict | None:
         d = obj.user.department
         return {"id": d.id, "name": d.name, "code": d.code} if d else None
 
-    def get_faculty(self, obj):
+    def get_faculty(self, obj) -> dict | None:
         d = obj.user.department
         f = d.faculty if d else None
         return {"id": f.id, "name": f.name, "code": f.code} if f else None
@@ -226,4 +230,35 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def validate_new_password(self, value):
         validate_password(value, self.context["request"].user)
+        return value
+
+
+PHONE_PATTERN = re.compile(r"^(\+234|0)[789][01]\d{8}$")
+MINIMUM_AGE = 14
+
+
+def years_between(born, today):
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+
+class ProfileUpdateSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=20)
+    address = serializers.CharField(max_length=255, allow_blank=True)
+    date_of_birth = serializers.DateField()
+
+    def validate_phone(self, value):
+        phone = re.sub(r"\s+", "", value)
+        if not PHONE_PATTERN.match(phone):
+            raise serializers.ValidationError("Enter a valid Nigerian phone number, e.g. 08031234567.")
+        return phone
+
+    def validate_address(self, value):
+        return value.strip()
+
+    def validate_date_of_birth(self, value: date):
+        today = timezone.localdate()
+        if value >= today:
+            raise serializers.ValidationError("Date of birth must be in the past.")
+        if years_between(value, today) < MINIMUM_AGE:
+            raise serializers.ValidationError(f"You must be at least {MINIMUM_AGE} years old.")
         return value

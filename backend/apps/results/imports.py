@@ -11,6 +11,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 from rest_framework.exceptions import ValidationError
 
 from core.exceptions import Conflict
+from core.spreadsheet import safe_text
 
 from .services import LOCKED, class_registrations, is_editable, lock_sheet, save_scores
 
@@ -53,7 +54,7 @@ def template(offering, extension):
         rows.append(
             (
                 registration.student.matric_no,
-                registration.student.user.get_full_name(),
+                safe_text(registration.student.user.get_full_name()),
                 mark(entry.ca_score) if entry else None,
                 mark(entry.exam_score) if entry else None,
             )

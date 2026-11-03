@@ -91,10 +91,10 @@ def test_a_past_session_lists_grades_and_a_gpa_per_semester(history, sign_in, ap
     body = api.get(f"/api/student/courses/?session={session.pk}").json()
 
     first, second = body["semesters"]
-    assert (body["level"], first["gpa"], second["gpa"]) == (200, "0.00", "5.00")
+    assert (body["level"], first["gpa"], second["gpa"]) == (200, 0.00, 5.00)
     assert first["courses"][0]["code"] == "CSC 201"
-    assert (first["courses"][0]["ca_score"], first["courses"][0]["exam_score"], first["courses"][0]["total"]) == ("10.00", "15.00", "25.00")
-    assert (second["courses"][0]["grade"], second["courses"][0]["grade_point"]) == ("A", "5.00")
+    assert (first["courses"][0]["ca_score"], first["courses"][0]["exam_score"], first["courses"][0]["total"]) == (10.00, 15.00, 25.00)
+    assert (second["courses"][0]["grade"], second["courses"][0]["grade_point"]) == ("A", 5.00)
     assert first["total_units"] == 3
 
 
@@ -149,8 +149,8 @@ def test_statement_lists_approved_results_with_the_legend(history, mth301, sign_
 
     assert body["student"]["matric_no"] == "CSC/2024/0001"
     assert [s["semester"]["term"] for s in body["semesters"]] == ["FIRST", "SECOND"]
-    assert [s["gpa"] for s in body["semesters"]] == ["0.00", "5.00"]
-    assert (body["cgpa"], body["units_attempted"], body["units_passed"]) == ("2.50", 6, 3)
+    assert [s["gpa"] for s in body["semesters"]] == [0.00, 5.00]
+    assert (body["cgpa"], body["units_attempted"], body["units_passed"]) == (2.50, 6, 3)
     assert [b["grade"] for b in body["bands"]] == ["A", "B", "C", "D", "E", "F"]
     assert body["generated_at"]
 
@@ -176,3 +176,9 @@ def test_student_views_use_a_bounded_number_of_queries(history, mth301, sign_in,
         api.get(f"/api/student/courses/?session={session.pk}")
     with django_assert_max_num_queries(12):
         api.get("/api/student/results/statement/")
+
+
+def test_the_old_results_endpoint_is_gone(history, sign_in, api):
+    sign_in("student@uemp.test")
+
+    assert api.get("/api/student/results/").status_code == 404

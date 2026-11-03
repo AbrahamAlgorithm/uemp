@@ -3,15 +3,11 @@ import re
 
 from django.http import HttpResponse
 
-FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")
+from core.spreadsheet import safe_text
 
 
 def cell(value):
-    if value is None:
-        return ""
-    text = str(value)
-    # a spreadsheet would run a leading = + - @ as a formula
-    return f"'{text}" if isinstance(value, str) and text.startswith(FORMULA_STARTS) else text
+    return "" if value is None else str(safe_text(value))
 
 
 def slug(text):

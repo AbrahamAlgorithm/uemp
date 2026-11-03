@@ -65,7 +65,7 @@ def test_student_record_has_registrations_results_cgpa_and_carry_overs(record_da
     assert body["cgpa"] == 0
     assert [c["code"] for c in body["carry_overs"]] == ["CSC 201"]
     first, current = body["semesters"]
-    assert (first["semester"]["term"], first["registration"]["status"], first["gpa"]) == ("FIRST", "VALIDATED", "0.00")
+    assert (first["semester"]["term"], first["registration"]["status"], first["gpa"]) == ("FIRST", "VALIDATED", 0.00)
     assert first["courses"][0]["grade"] == "F"
     assert (current["registration"]["status"], current["gpa"], current["courses"][0]["grade"]) == ("SUBMITTED", None, None)
 

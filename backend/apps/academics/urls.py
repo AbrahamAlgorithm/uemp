@@ -13,10 +13,5 @@ router.register("programs", ProgramViewSet, basename="program")
 # ahead of the router, which would read "current" as a semester id
 urlpatterns = [
     path("semesters/current/", CurrentSemesterView.as_view(), name="current-semester"),
-    path(
-        "semesters/<int:pk>/set-current/",
-        SemesterViewSet.as_view({"post": "set_current"}),
-        name="semester-set-current",
-    ),
     path("", include(router.urls)),
 ]
