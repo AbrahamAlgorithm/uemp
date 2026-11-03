@@ -34,17 +34,17 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
-    list_display = ("matric_no", "user", "program", "level")
+    list_display = ("matric_no", "user", "program", "level", "gender")
     search_fields = ("matric_no", "user__email", "user__first_name", "user__last_name")
-    list_filter = ("level", "program__department", "program")
+    list_filter = ("level", "gender", "program__department", "program")
     list_select_related = ("user", "program")
     autocomplete_fields = ("user", "program")
 
 
 @admin.register(LecturerProfile)
 class LecturerProfileAdmin(admin.ModelAdmin):
-    list_display = ("staff_id", "title", "user")
+    list_display = ("staff_id", "title", "user", "rank", "office")
     search_fields = ("staff_id", "user__email", "user__first_name", "user__last_name")
-    list_filter = ("title", "user__department")
+    list_filter = ("rank", "title", "user__department")
     list_select_related = ("user",)
     autocomplete_fields = ("user",)

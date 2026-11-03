@@ -35,6 +35,7 @@ class Department(TimeStampedModel):
 class Program(TimeStampedModel):
     department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="programs")
     name = models.CharField(max_length=150)
+    award = models.CharField(max_length=20)
     duration_years = models.PositiveSmallIntegerField()
 
     class Meta:
@@ -47,11 +48,13 @@ class Program(TimeStampedModel):
         ]
 
     def __str__(self):
-        return self.name
+        return f"{self.award} {self.name}"
 
 
 class AcademicSession(TimeStampedModel):
     name = models.CharField(max_length=20, unique=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
         return self.name

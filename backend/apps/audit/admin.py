@@ -5,9 +5,10 @@ from .models import AuditLog
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "actor_email", "action", "entity_type", "entity_id", "ip_address")
-    search_fields = ("actor_email", "action", "entity_type", "entity_id")
-    list_filter = ("action", "entity_type", "created_at")
+    list_display = ("created_at", "actor_email", "action", "target", "department", "ip_address")
+    search_fields = ("actor_email", "action", "entity_type", "entity_id", "target")
+    list_filter = ("action", "entity_type", "department", "created_at")
+    list_select_related = ("department",)
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
 

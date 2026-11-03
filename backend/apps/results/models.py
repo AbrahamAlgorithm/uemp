@@ -60,19 +60,23 @@ class ResultEntry(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="result",
     )
-    ca_score = models.DecimalField(max_digits=5, decimal_places=2)
-    exam_score = models.DecimalField(max_digits=5, decimal_places=2)
-    total = models.DecimalField(max_digits=5, decimal_places=2)
-    grade = models.CharField(max_length=2)
-    grade_point = models.DecimalField(max_digits=3, decimal_places=2)
+    ca_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    exam_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    # filled when the sheet is submitted, not on every save
+    total = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    grade = models.CharField(max_length=2, null=True, blank=True)
+    grade_point = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "result entries"
         constraints = [
-            models.CheckConstraint(condition=Q(ca_score__gte=0, ca_score__lte=30), name="result_entry_ca_0_to_30"),
             models.CheckConstraint(
-                condition=Q(exam_score__gte=0, exam_score__lte=70),
-                name="result_entry_exam_0_to_70",
+                condition=Q(ca_score__isnull=True) | Q(ca_score__gte=0, ca_score__lte=40),
+                name="result_entry_ca_0_to_40",
+            ),
+            models.CheckConstraint(
+                condition=Q(exam_score__isnull=True) | Q(exam_score__gte=0, exam_score__lte=60),
+                name="result_entry_exam_0_to_60",
             ),
         ]
 

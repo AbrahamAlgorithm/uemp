@@ -78,10 +78,18 @@ class User(AbstractUser, TimeStampedModel):
 
 
 class StudentProfile(TimeStampedModel):
+    class Gender(models.TextChoices):
+        MALE = "M", "Male"
+        FEMALE = "F", "Female"
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
     matric_no = models.CharField(max_length=20, unique=True)
     program = models.ForeignKey("academics.Program", on_delete=models.PROTECT, related_name="students")
     level = models.PositiveSmallIntegerField(choices=Level.choices)
+    gender = models.CharField(max_length=1, choices=Gender.choices, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    # text rather than a FK: it usually predates the sessions held in the system
+    entry_session = models.CharField(max_length=20, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     address = models.CharField(max_length=255, blank=True)
 
@@ -102,6 +110,9 @@ class LecturerProfile(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="lecturer_profile")
     staff_id = models.CharField(max_length=20, unique=True)
     title = models.CharField(max_length=30, blank=True)
+    rank = models.CharField(max_length=60, blank=True)
+    office = models.CharField(max_length=100, blank=True)
+    phone = models.CharField(max_length=20, blank=True)
 
     def __str__(self):
         return f"{self.staff_id} {self.user.get_full_name()}".strip()

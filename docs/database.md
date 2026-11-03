@@ -24,6 +24,7 @@ erDiagram
     COURSE_REGISTRATION ||--o| RESULT_ENTRY : "scored in"
     USER |o--o{ RESULT_SHEET : "submits / reviews"
     USER |o--o{ AUDIT_LOG : performs
+    DEPARTMENT |o--o{ AUDIT_LOG : scopes
 
     FACULTY {
         bigint id PK
@@ -40,11 +41,14 @@ erDiagram
         bigint id PK
         bigint department_id FK
         varchar name "unique per department"
+        varchar award "B.Sc., B.Eng."
         smallint duration_years "4 to 6"
     }
     ACADEMIC_SESSION {
         bigint id PK
         varchar name UK "2026/2027"
+        date start_date
+        date end_date
     }
     SEMESTER {
         bigint id PK
@@ -65,6 +69,9 @@ erDiagram
         varchar matric_no UK
         bigint program_id FK
         smallint level "100 to 500"
+        varchar gender "M or F"
+        date date_of_birth
+        varchar entry_session
         varchar phone
         varchar address
     }
@@ -73,6 +80,9 @@ erDiagram
         bigint user_id FK, UK
         varchar staff_id UK
         varchar title
+        varchar rank
+        varchar office
+        varchar phone
     }
     COURSE {
         bigint id PK
@@ -114,9 +124,9 @@ erDiagram
     RESULT_ENTRY {
         bigint id PK
         bigint registration_id FK, UK
-        decimal ca_score "0 to 30"
-        decimal exam_score "0 to 70"
-        decimal total
+        decimal ca_score "0 to 40, nullable"
+        decimal exam_score "0 to 60, nullable"
+        decimal total "null until submitted"
         varchar grade
         decimal grade_point
     }
@@ -127,6 +137,9 @@ erDiagram
         varchar action
         varchar entity_type
         varchar entity_id
+        varchar target
+        varchar details
+        bigint department_id FK "nullable"
         jsonb before
         jsonb after
         inet ip_address
@@ -138,17 +151,17 @@ erDiagram
 
 - `academics_faculty`: top level of the university structure; `code` is unique.
 - `academics_department`: a department inside a faculty; `code` is unique.
-- `academics_program`: a degree programme run by a department; `(department, name)` is unique and `duration_years` is between 4 and 6.
-- `academics_academicsession`: an academic year such as `2026/2027`; `name` is unique.
+- `academics_program`: a degree programme run by a department, with its award such as B.Sc. or B.Eng.; `(department, name)` is unique and `duration_years` is between 4 and 6.
+- `academics_academicsession`: an academic year such as `2026/2027`, with optional start and end dates; `name` is unique.
 - `academics_semester`: the FIRST or SECOND term of a session; `(session, term)` is unique, and a partial unique index on `is_current = true` allows only one current semester.
 - `accounts_user`: the sign-in account for every role; `email` is unique and `department` is null if and only if `role = SUPER_ADMIN`.
-- `accounts_studentprofile`: student details, one per user and deleted with it; `matric_no` is unique, `level` is one of 100, 200, 300, 400, 500, and the department is read through `program`.
-- `accounts_lecturerprofile`: lecturer details, one per user and deleted with it; `staff_id` is unique.
+- `accounts_studentprofile`: student details, one per user and deleted with it; `matric_no` is unique, `level` is one of 100, 200, 300, 400, 500, the department is read through `program`, and gender, date of birth and entry session are optional. `entry_session` is plain text because it usually predates the sessions held in the system.
+- `accounts_lecturerprofile`: lecturer details (title, rank, office, phone), one per user and deleted with it; `staff_id` is unique.
 - `courses_course`: a catalogue course owned by a department; `code` is unique, `units` is 1 to 6, `level` is one of 100 to 500, and `semester_term` is FIRST or SECOND.
 - `courses_course_programs`: join table for the programmes a course is offered to.
 - `courses_courseoffering`: a course running in a given semester; `(course, semester)` is unique, `lecturer` is set to null if the lecturer profile is deleted, and saving a new offering creates its result sheet.
 - `registrations_courseregistration`: a student registered on an offering; `(student, offering)` is unique. The 24-unit cap (`MAX_UNITS_PER_SEMESTER`) is checked in application code, not by the database.
 - `results_gradescale`: maps a score band to a grade and grade point; `0 <= min_score <= max_score <= 100`.
 - `results_resultsheet`: one per offering, created as DRAFT when the offering is created; `status` is indexed, and the submitter and reviewer are nullable references to users that can't be deleted while referenced.
-- `results_resultentry`: a student's score for one registration, at most one per registration; `ca_score` is 0 to 30 and `exam_score` is 0 to 70, with `total`, `grade` and `grade_point` stored alongside.
-- `audit_auditlog`: an append-only record of who changed what; indexed on `(entity_type, entity_id)` and on `created_at`. `actor` is set to null when the user is deleted, while `actor_email` keeps the name, and it is read-only in the admin.
+- `results_resultentry`: a student's score for one registration, at most one per registration. `ca_score` (0 to 40) and `exam_score` (0 to 60) are each nullable, so a lecturer can save CA only, exam only, both or neither. `total`, `grade` and `grade_point` stay null until the sheet is submitted, when blank scores count as 0.
+- `audit_auditlog`: an append-only record of who changed what, with display text in `target` and `details` and an optional `department` for department-level activity feeds; indexed on `(entity_type, entity_id)` and on `created_at`. `actor` and `department` are set to null when their row is deleted, while `actor_email` keeps the name, and it is read-only in the admin.

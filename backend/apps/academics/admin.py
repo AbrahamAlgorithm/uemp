@@ -20,15 +20,15 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
-    list_display = ("name", "department", "duration_years")
+    list_display = ("name", "award", "department", "duration_years")
     search_fields = ("name", "department__name", "department__code")
-    list_filter = ("duration_years", "department__faculty", "department")
+    list_filter = ("award", "duration_years", "department__faculty", "department")
     list_select_related = ("department",)
 
 
 @admin.register(AcademicSession)
 class AcademicSessionAdmin(admin.ModelAdmin):
-    list_display = ("name", "created_at")
+    list_display = ("name", "start_date", "end_date")
     search_fields = ("name",)
     list_filter = ("created_at",)
 

@@ -20,6 +20,16 @@ class AuditLog(TimeStampedModel):
     action = models.CharField(max_length=50)
     entity_type = models.CharField(max_length=50)
     entity_id = models.CharField(max_length=64)
+    target = models.CharField(max_length=200, blank=True)
+    details = models.CharField(max_length=255, blank=True)
+    # lets department admins see their own activity; logs must never block a delete
+    department = models.ForeignKey(
+        "academics.Department",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
     before = models.JSONField(null=True, blank=True)
     after = models.JSONField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
