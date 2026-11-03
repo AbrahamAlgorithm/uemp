@@ -1,0 +1,406 @@
+// UEMP database schema (PostgreSQL 16), generated from the Django models.
+// Paste into https://dbdiagram.io/d to draw the diagram.
+// Cardinality: ">" is many-to-one, "-" is one-to-one.
+// Django's own auth and session tables and the SimpleJWT token blacklist tables are not included.
+
+Enum term_name {
+  FIRST
+  SECOND
+}
+
+Enum user_role {
+  STUDENT
+  LECTURER
+  DEPT_ADMIN
+  SUPER_ADMIN
+}
+
+Enum user_status {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+Enum registration_status {
+  SUBMITTED
+  VALIDATED
+  RETURNED
+}
+
+Enum sheet_status {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+Table academics_faculty {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  name varchar(150) [not null]
+  code varchar(10) [not null, unique]
+
+  Note: '''
+    Unique: code
+  '''
+}
+
+Table academics_department {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  faculty_id bigint [not null]
+  name varchar(150) [not null]
+  code varchar(10) [not null, unique]
+
+  Note: '''
+    Unique: code
+  '''
+}
+
+Table academics_program {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  department_id bigint [not null]
+  name varchar(150) [not null]
+  award varchar(20) [not null]
+  duration_years smallint [not null]
+
+  indexes {
+    (department_id, name) [unique, name: 'program_unique_name_per_department']
+  }
+
+  Note: '''
+    Unique: (department_id, name) as program_unique_name_per_department
+    Check program_duration_years_4_to_6: duration_years between 4 and 6
+  '''
+}
+
+Table academics_academicsession {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  name varchar(20) [not null, unique]
+  start_date date
+  end_date date
+
+  Note: '''
+    Unique: name
+  '''
+}
+
+Table academics_semester {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  session_id bigint [not null]
+  term term_name [not null]
+  is_current boolean [not null, default: false]
+  registration_open boolean [not null, default: false]
+
+  indexes {
+    (session_id, term) [unique, name: 'semester_unique_term_per_session']
+  }
+
+  Note: '''
+    Unique: (session_id, term) as semester_unique_term_per_session
+    Unique, partial: is_current is unique among rows where is_current = true (semester_single_current), so at most one current semester
+    registration_open is the registration window students need open to submit
+  '''
+}
+
+Table accounts_user {
+  id bigint [pk, increment]
+  password varchar(128) [not null]
+  last_login timestamptz
+  is_superuser boolean [not null, default: false]
+  first_name varchar(150) [not null]
+  last_name varchar(150) [not null]
+  is_staff boolean [not null, default: false]
+  is_active boolean [not null, default: true]
+  date_joined timestamptz [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  email varchar(254) [not null, unique]
+  role user_role [not null]
+  status user_status [not null, default: 'ACTIVE']
+  department_id bigint
+
+  Note: '''
+    Unique: email
+    Check user_department_null_only_for_super_admin: (role = SUPER_ADMIN and department_id is null) or (role <> SUPER_ADMIN and department_id is not null)
+    Rule in the application: accounts are never deleted, only set INACTIVE or SUSPENDED
+  '''
+}
+
+Table accounts_studentprofile {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  user_id bigint [not null, unique]
+  matric_no varchar(20) [not null, unique]
+  program_id bigint [not null]
+  level smallint [not null, note: '100, 200, 300, 400 or 500']
+  gender varchar(1) [not null, note: 'M or F, blank allowed']
+  date_of_birth date
+  entry_session_id bigint
+  phone varchar(20) [not null]
+  address varchar(255) [not null]
+
+  Note: '''
+    Unique: user_id, matric_no
+    Check student_profile_valid_level: level in (100, 200, 300, 400, 500)
+    The student's department is read through program_id
+  '''
+}
+
+Table accounts_staffprofile {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  user_id bigint [not null, unique]
+  staff_id varchar(20) [not null, unique]
+  title varchar(30) [not null]
+  phone varchar(20) [not null]
+
+  Note: '''
+    Unique: user_id, staff_id
+    Used by lecturers, department admins and super admins
+  '''
+}
+
+Table courses_course {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  department_id bigint [not null]
+  code varchar(10) [not null, unique]
+  title varchar(200) [not null]
+  units smallint [not null]
+  level smallint [not null, note: '100, 200, 300, 400 or 500']
+  semester_term term_name [not null]
+
+  Note: '''
+    Unique: code
+    Check course_units_1_to_6: units between 1 and 6
+    Check course_valid_level: level in (100, 200, 300, 400, 500)
+  '''
+}
+
+Table courses_courseoffering {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  course_id bigint [not null]
+  semester_id bigint [not null]
+  lecturer_id bigint
+
+  indexes {
+    (course_id, semester_id) [unique, name: 'course_offering_unique_per_semester']
+  }
+
+  Note: '''
+    Unique: (course_id, semester_id) as course_offering_unique_per_semester
+    Rule in the application: lecturer must be a staff profile whose user has role LECTURER
+    Saving a new offering creates its result sheet
+  '''
+}
+
+Table registrations_semesterregistration {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  student_id bigint [not null]
+  semester_id bigint [not null]
+  status registration_status [not null, default: 'SUBMITTED']
+  submitted_at timestamptz [not null]
+  validated_by_id bigint
+  validated_at timestamptz
+  return_reason text [not null]
+
+  indexes {
+    (student_id, semester_id) [unique, name: 'semester_registration_unique']
+    status
+  }
+
+  Note: '''
+    Unique: (student_id, semester_id) as semester_registration_unique
+    Only VALIDATED forms put a student on a class list
+  '''
+}
+
+Table registrations_courseregistration {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  student_id bigint [not null]
+  offering_id bigint [not null]
+  semester_registration_id bigint [not null]
+
+  indexes {
+    (student_id, offering_id) [unique, name: 'course_registration_unique']
+  }
+
+  Note: '''
+    Unique: (student_id, offering_id) as course_registration_unique
+    Rule in the application: the 24-unit cap and student/semester consistency with the form
+  '''
+}
+
+Table results_gradescale {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  min_score smallint [not null]
+  max_score smallint [not null]
+  grade varchar(2) [not null]
+  point decimal(3,2) [not null]
+
+  Note: '''
+    Check grade_scale_valid_range: 0 <= min_score <= max_score <= 100
+  '''
+}
+
+Table results_resultsheet {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  offering_id bigint [not null, unique]
+  status sheet_status [not null, default: 'DRAFT']
+  submitted_by_id bigint
+  submitted_at timestamptz
+  reviewed_by_id bigint
+  reviewed_at timestamptz
+  feedback text [not null]
+
+  indexes {
+    status
+  }
+
+  Note: '''
+    Unique: offering_id (one sheet per offering, created as DRAFT)
+  '''
+}
+
+Table results_resultentry {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  registration_id bigint [not null, unique]
+  ca_score decimal(5,2)
+  exam_score decimal(5,2)
+  total decimal(5,2)
+  grade varchar(2)
+  grade_point decimal(3,2)
+
+  Note: '''
+    Unique: registration_id
+    Check result_entry_ca_0_to_40: ca_score is null or between 0 and 40
+    Check result_entry_exam_0_to_60: exam_score is null or between 0 and 60
+    total, grade and grade_point stay null until the sheet is submitted
+  '''
+}
+
+Table audit_auditlog {
+  id bigint [pk, increment]
+  created_at timestamptz [not null]
+  actor_id bigint
+  actor_email varchar(254) [not null]
+  action varchar(50) [not null]
+  entity_type varchar(50) [not null]
+  entity_id varchar(64) [not null]
+  target varchar(200) [not null]
+  details text [not null]
+  department_id bigint
+  before jsonb
+  after jsonb
+  ip_address inet
+
+  indexes {
+    (entity_type, entity_id) [name: 'audit_log_entity_idx']
+    (created_at) [name: 'audit_log_created_at_idx']
+  }
+
+  Note: '''
+    Append-only; actor_email keeps the name after the account is gone
+  '''
+}
+
+Table courses_course_programs {
+  id bigint [pk, increment]
+  course_id bigint [not null]
+  program_id bigint [not null]
+
+  indexes {
+    (course_id, program_id) [unique]
+  }
+
+  Note: '''
+    Unique: (course_id, program_id)
+    Many-to-many join: the programs a course is offered to
+  '''
+}
+
+TableGroup academic_structure {
+  academics_faculty
+  academics_department
+  academics_program
+  academics_academicsession
+  academics_semester
+}
+
+TableGroup people {
+  accounts_user
+  accounts_studentprofile
+  accounts_staffprofile
+}
+
+TableGroup teaching {
+  courses_course
+  courses_course_programs
+  courses_courseoffering
+}
+
+TableGroup registration {
+  registrations_semesterregistration
+  registrations_courseregistration
+}
+
+TableGroup results {
+  results_gradescale
+  results_resultsheet
+  results_resultentry
+}
+
+TableGroup audit {
+  audit_auditlog
+}
+
+Ref: academics_department.faculty_id > academics_faculty.id [delete: restrict]
+Ref: academics_program.department_id > academics_department.id [delete: restrict]
+Ref: academics_semester.session_id > academics_academicsession.id [delete: restrict]
+Ref: accounts_user.department_id > academics_department.id [delete: restrict]
+Ref: accounts_studentprofile.user_id - accounts_user.id [delete: cascade]
+Ref: accounts_studentprofile.program_id > academics_program.id [delete: restrict]
+Ref: accounts_studentprofile.entry_session_id > academics_academicsession.id [delete: restrict]
+Ref: accounts_staffprofile.user_id - accounts_user.id [delete: cascade]
+Ref: courses_course.department_id > academics_department.id [delete: restrict]
+Ref: courses_courseoffering.course_id > courses_course.id [delete: restrict]
+Ref: courses_courseoffering.semester_id > academics_semester.id [delete: restrict]
+Ref: courses_courseoffering.lecturer_id > accounts_staffprofile.id [delete: set null]
+Ref: registrations_semesterregistration.student_id > accounts_studentprofile.id [delete: restrict]
+Ref: registrations_semesterregistration.semester_id > academics_semester.id [delete: restrict]
+Ref: registrations_semesterregistration.validated_by_id > accounts_user.id [delete: restrict]
+Ref: registrations_courseregistration.student_id > accounts_studentprofile.id [delete: restrict]
+Ref: registrations_courseregistration.offering_id > courses_courseoffering.id [delete: restrict]
+Ref: registrations_courseregistration.semester_registration_id > registrations_semesterregistration.id [delete: restrict]
+Ref: results_resultsheet.offering_id - courses_courseoffering.id [delete: restrict]
+Ref: results_resultsheet.submitted_by_id > accounts_user.id [delete: restrict]
+Ref: results_resultsheet.reviewed_by_id > accounts_user.id [delete: restrict]
+Ref: results_resultentry.registration_id - registrations_courseregistration.id [delete: restrict]
+Ref: audit_auditlog.actor_id > accounts_user.id [delete: set null]
+Ref: audit_auditlog.department_id > academics_department.id [delete: set null]
+Ref: courses_course_programs.course_id > courses_course.id [delete: cascade]
+Ref: courses_course_programs.program_id > academics_program.id [delete: cascade]
