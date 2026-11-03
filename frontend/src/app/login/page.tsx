@@ -60,7 +60,7 @@ export default function LoginPage() {
           {isSubmitting && <Spinner />}
           Sign in
         </Button>
-        <p className="text-center text-sm text-muted-foreground">Forgot your password? Contact your department administrator.</p>
+        <p className="text-center text-sm text-muted-foreground">Forgot your password? Contact the portal administrator.</p>
       </form>
     </AuthLayout>
   );

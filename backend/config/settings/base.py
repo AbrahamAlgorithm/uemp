@@ -137,6 +137,8 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "ENUM_NAME_OVERRIDES": {
         "HealthStateEnum": "core.views.HEALTH_STATES",
+        "UserStatusEnum": "apps.accounts.models.User.Status",
+        "RegistrationStatusEnum": "apps.registrations.models.SemesterRegistration.Status",
     },
 }
 

@@ -106,6 +106,10 @@ if ! exists gcloud secrets describe DATABASE_URL; then
   unset db_password
 fi
 exists gcloud secrets describe SEED_PASSWORD || add_secret SEED_PASSWORD "${SEED_PASSWORD:-$(token 12)}"
+# the only account that reaches the django admin; its address is private, so it has no default here
+exists gcloud secrets describe OPS_ADMIN_EMAIL \
+  || add_secret OPS_ADMIN_EMAIL "${OPS_ADMIN_EMAIL:?set OPS_ADMIN_EMAIL for the first run, it becomes a secret}"
+exists gcloud secrets describe OPS_ADMIN_PASSWORD || add_secret OPS_ADMIN_PASSWORD "${OPS_ADMIN_PASSWORD:-$(token 24)}"
 
 step "5. service account uemp-api-sa"
 exists gcloud iam service-accounts describe "$API_SA" \
@@ -113,7 +117,7 @@ exists gcloud iam service-accounts describe "$API_SA" \
 # a new service account takes a few seconds before iam accepts it as a member
 retry gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:${API_SA}" \
   --role roles/cloudsql.client --condition None --quiet >/dev/null
-for secret in DJANGO_SECRET_KEY DATABASE_URL SEED_PASSWORD; do
+for secret in DJANGO_SECRET_KEY DATABASE_URL SEED_PASSWORD OPS_ADMIN_EMAIL OPS_ADMIN_PASSWORD; do
   retry gcloud secrets add-iam-policy-binding "$secret" --member "serviceAccount:${API_SA}" \
     --role roles/secretmanager.secretAccessor --quiet >/dev/null
 done
@@ -143,11 +147,11 @@ gcloud run jobs deploy uemp-migrate \
   --service-account "$API_SA" \
   --set-cloudsql-instances "$SQL_CONNECTION" \
   --set-env-vars "$API_ENV" \
-  --set-secrets "SECRET_KEY=DJANGO_SECRET_KEY:latest,DATABASE_URL=DATABASE_URL:latest,SEED_PASSWORD=SEED_PASSWORD:latest" \
+  --set-secrets "SECRET_KEY=DJANGO_SECRET_KEY:latest,DATABASE_URL=DATABASE_URL:latest,SEED_PASSWORD=SEED_PASSWORD:latest,OPS_ADMIN_EMAIL=OPS_ADMIN_EMAIL:latest,OPS_ADMIN_PASSWORD=OPS_ADMIN_PASSWORD:latest" \
   --max-retries 0 \
   --task-timeout 15m \
   --command sh \
-  --args="-c,python manage.py migrate --noinput && python manage.py seed_demo"
+  --args="-c,python manage.py migrate --noinput && python manage.py seed_demo && python manage.py create_ops_admin"
 gcloud run jobs execute uemp-migrate --region "$REGION" --wait
 
 step "9. build and deploy uemp-web"

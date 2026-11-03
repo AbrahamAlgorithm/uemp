@@ -1,7 +1,9 @@
+from django.contrib.auth.password_validation import validate_password
 from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema_field
 from rest_framework import serializers
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program
+from apps.audit.models import AuditLog
 
 from .models import StaffProfile, StudentProfile, User
 
@@ -74,3 +76,132 @@ class MeSerializer(serializers.ModelSerializer):
             return StudentProfileSerializer(student).data
         staff = getattr(user, "staff_profile", None)
         return StaffProfileSerializer(staff).data if staff is not None else None
+
+
+class UserSerializer(serializers.ModelSerializer):
+    department_detail = serializers.SerializerMethodField(source="department", read_only=True)
+    identifier = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    student = serializers.SerializerMethodField()
+    staff = serializers.SerializerMethodField()
+    recent_activity = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "email", "first_name", "last_name", "role", "status", "department",
+            "department_detail", "identifier", "phone", "date_joined", "last_login",
+            "student", "staff", "recent_activity",
+        ]
+        read_only_fields = ["email", "date_joined", "last_login", "identifier", "phone"]
+
+    def get_department_detail(self, obj):
+        if not obj.department:
+            return None
+        return {"id": obj.department_id, "name": obj.department.name, "code": obj.department.code}
+
+    def get_identifier(self, obj):
+        profile = getattr(obj, "student_profile", None) or getattr(obj, "staff_profile", None)
+        return getattr(profile, "matric_no", None) or getattr(profile, "staff_id", None)
+
+    def get_phone(self, obj):
+        return getattr(getattr(obj, "student_profile", None), "phone", None) or getattr(
+            getattr(obj, "staff_profile", None), "phone", ""
+        )
+
+    def get_student(self, obj):
+        profile = getattr(obj, "student_profile", None)
+        return StudentSerializer(profile).data if profile else None
+
+    def get_staff(self, obj):
+        profile = getattr(obj, "staff_profile", None)
+        return StaffSerializer(profile).data if profile else None
+
+    def get_recent_activity(self, obj):
+        return [
+            {"id": entry.id, "at": entry.created_at, "action": entry.action, "target": entry.target, "details": entry.details}
+            for entry in AuditLog.objects.filter(actor=obj).order_by("-created_at")[:10]
+        ]
+
+    def validate(self, attrs):
+        role = attrs.get("role", self.instance.role if self.instance else None)
+        department = attrs.get("department", self.instance.department if self.instance else None)
+        if role == User.Role.SUPER_ADMIN and department is not None:
+            raise serializers.ValidationError({"department": "Super admins cannot belong to a department."})
+        if role != User.Role.SUPER_ADMIN and department is None:
+            raise serializers.ValidationError({"department": "A department is required for this role."})
+        return attrs
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source="user.email")
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    status = serializers.CharField(source="user.status", read_only=True)
+    department = serializers.SerializerMethodField()
+    faculty = serializers.SerializerMethodField()
+    program_detail = serializers.SerializerMethodField(source="program", read_only=True)
+    initial_password = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = StudentProfile
+        fields = [
+            "id", "email", "first_name", "last_name", "matric_no", "level", "gender",
+            "date_of_birth", "entry_session", "phone", "address", "status", "program",
+            "program_detail", "department", "faculty", "initial_password",
+        ]
+
+    def get_department(self, obj):
+        d = obj.program.department
+        return {"id": d.id, "name": d.name, "code": d.code}
+
+    def get_faculty(self, obj):
+        f = obj.program.department.faculty
+        return {"id": f.id, "name": f.name, "code": f.code}
+
+    def get_program_detail(self, obj):
+        return {"id": obj.program_id, "name": obj.program.name, "award": obj.program.award}
+
+    def validate_initial_password(self, value):
+        validate_password(value)
+        return value
+
+
+class StaffSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source="user.email")
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    role = serializers.CharField(source="user.role", required=False, default=User.Role.LECTURER)
+    status = serializers.CharField(source="user.status", read_only=True)
+    department = serializers.SerializerMethodField()
+    faculty = serializers.SerializerMethodField()
+    initial_password = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = StaffProfile
+        fields = [
+            "id", "email", "first_name", "last_name", "staff_id", "title", "phone",
+            "role", "status", "department", "faculty", "initial_password",
+        ]
+
+    def get_department(self, obj):
+        d = obj.user.department
+        return {"id": d.id, "name": d.name, "code": d.code} if d else None
+
+    def get_faculty(self, obj):
+        d = obj.user.department
+        f = d.faculty if d else None
+        return {"id": f.id, "name": f.name, "code": f.code} if f else None
+
+    def validate_initial_password(self, value):
+        validate_password(value)
+        return value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value, self.context["request"].user)
+        return value

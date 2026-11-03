@@ -68,6 +68,7 @@ class Semester(TimeStampedModel):
     session = models.ForeignKey(AcademicSession, on_delete=models.PROTECT, related_name="semesters")
     term = models.CharField(max_length=10, choices=Term.choices)
     is_current = models.BooleanField(default=False)
+    registration_open = models.BooleanField(default=False)
 
     class Meta:
         constraints = [

@@ -24,6 +24,8 @@ def HasRole(*roles):
     return RolePermission
 
 
+MANAGERS = (User.Role.DEPT_ADMIN, User.Role.SUPER_ADMIN)
+
 IsStudent = HasRole(User.Role.STUDENT)
 IsLecturer = HasRole(User.Role.LECTURER)
 IsDeptAdmin = HasRole(User.Role.DEPT_ADMIN)

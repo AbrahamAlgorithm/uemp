@@ -8,7 +8,7 @@ from apps.academics.models import AcademicSession, Department, Faculty, Program,
 from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
 from apps.courses.services import assign_lecturer
-from apps.registrations.models import CourseRegistration
+from apps.registrations.models import CourseRegistration, SemesterRegistration
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
 
 pytestmark = pytest.mark.django_db
@@ -52,7 +52,8 @@ def student(department, program):
 
 @pytest.fixture
 def registration(student, offering):
-    return CourseRegistration.objects.create(student=student, offering=offering)
+    form = SemesterRegistration.objects.create(student=student, semester=offering.semester, submitted_at=offering.created_at)
+    return CourseRegistration.objects.create(student=student, offering=offering, semester_registration=form)
 
 
 def test_new_offering_gets_a_draft_result_sheet(offering):

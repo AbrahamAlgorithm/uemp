@@ -13,7 +13,8 @@ from django.db.models import ProtectedError, Q
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
 from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
-from apps.registrations.models import CourseRegistration
+from apps.registrations.models import CourseRegistration, SemesterRegistration
+from apps.registrations.services import validated_registrations
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
 
 DOMAIN = "uemp.test"
@@ -21,6 +22,7 @@ DEFAULT_PASSWORD = "Demo@2026"
 
 FIRST, SECOND = Semester.Term.FIRST, Semester.Term.SECOND
 Status = ResultSheet.Status
+Form = SemesterRegistration.Status
 
 GRADE_SCALE = [
     (70, 100, "A", 5),
@@ -51,6 +53,9 @@ PROGRAMS = [
 
 PAST_SESSION = "2025/2026"
 CURRENT_SESSION = "2026/2027"
+PAST_FIRST = (PAST_SESSION, FIRST)
+PAST_SECOND = (PAST_SESSION, SECOND)
+CURRENT = (CURRENT_SESSION, FIRST)
 
 # the older sessions only exist as entry sessions, so they have no semesters
 SESSIONS = [
@@ -116,6 +121,7 @@ ADDRESSES = [
 # the first digit of the code is the level and an odd last digit means first semester
 COURSES = [
     ("CSC 101", "Introduction to Computer Science", 3, ["CS", "IT"]),
+    ("CSC 201", "Computer Programming I", 3, ["CS", "IT"]),
     ("CSC 202", "Computer Programming II", 3, ["CS", "IT"]),
     ("CSC 204", "Fundamentals of Data Structures", 3, ["CS", "IT"]),
     ("CSC 301", "Data Structures and Algorithms", 3, ["CS", "IT"]),
@@ -133,24 +139,52 @@ COURSES = [
     ("EEE 501", "Power Electronics", 3, ["EEE"]),
 ]
 
-# second-semester courses ran last session, first-semester ones are running now
 OFFERINGS = {
-    "CSC 202": ("lecturer1.csc", Status.APPROVED, "full"),
-    "CSC 204": ("lecturer2.csc", Status.APPROVED, "full"),
-    "MTH 102": ("lecturer2.mth", Status.APPROVED, "full"),
-    "MTH 302": ("lecturer1.mth", Status.APPROVED, "full"),
-    "EEE 302": ("lecturer2.eee", Status.APPROVED, "full"),
-    "EEE 402": ("lecturer1.eee", Status.APPROVED, "full"),
-    "CSC 101": ("lecturer3.csc", Status.DRAFT, "partial"),
-    "CSC 301": ("lecturer1.csc", Status.REJECTED, "full"),
-    "CSC 303": ("lecturer2.csc", Status.SUBMITTED, "full"),
-    "MTH 101": ("lecturer2.mth", Status.DRAFT, None),
-    "MTH 201": ("lecturer1.mth", Status.SUBMITTED, "full"),
-    "MTH 301": ("lecturer1.mth", Status.APPROVED, "full"),
-    "MTH 401": ("lecturer2.mth", Status.APPROVED, "full"),
-    "EEE 201": ("lecturer1.eee", Status.DRAFT, "partial"),
-    "EEE 401": ("lecturer2.eee", Status.REJECTED, "full"),
-    "EEE 501": ("lecturer1.eee", Status.DRAFT, None),
+    PAST_FIRST: {
+        "CSC 201": ("lecturer3.csc", Status.APPROVED, "full"),
+        "MTH 101": ("lecturer2.mth", Status.APPROVED, "full"),
+        "MTH 201": ("lecturer1.mth", Status.APPROVED, "full"),
+        "MTH 301": ("lecturer1.mth", Status.APPROVED, "full"),
+        "EEE 201": ("lecturer1.eee", Status.APPROVED, "full"),
+        "EEE 401": ("lecturer2.eee", Status.APPROVED, "full"),
+    },
+    PAST_SECOND: {
+        "CSC 202": ("lecturer1.csc", Status.APPROVED, "full"),
+        "CSC 204": ("lecturer2.csc", Status.APPROVED, "full"),
+        "MTH 102": ("lecturer2.mth", Status.APPROVED, "full"),
+        "MTH 302": ("lecturer1.mth", Status.APPROVED, "full"),
+        "EEE 302": ("lecturer2.eee", Status.APPROVED, "full"),
+        "EEE 402": ("lecturer1.eee", Status.APPROVED, "full"),
+    },
+    CURRENT: {
+        "CSC 101": ("lecturer3.csc", Status.DRAFT, "partial"),
+        "CSC 201": ("lecturer3.csc", Status.DRAFT, None),
+        "CSC 301": ("lecturer1.csc", Status.REJECTED, "full"),
+        "CSC 303": ("lecturer2.csc", Status.SUBMITTED, "full"),
+        "MTH 101": ("lecturer2.mth", Status.DRAFT, None),
+        "MTH 201": ("lecturer1.mth", Status.SUBMITTED, "full"),
+        "MTH 301": ("lecturer1.mth", Status.APPROVED, "full"),
+        "MTH 401": ("lecturer2.mth", Status.APPROVED, "full"),
+        "EEE 201": ("lecturer1.eee", Status.DRAFT, "partial"),
+        "EEE 401": ("lecturer2.eee", Status.REJECTED, "full"),
+        "EEE 501": ("lecturer1.eee", Status.DRAFT, None),
+    },
+}
+
+# student1 failed CSC 201, so it comes back this semester as a pre-selected carry-over
+FORCED_SCORES = {(1, PAST_FIRST, "CSC 201"): (Decimal(11), Decimal(17))}
+
+# this semester's forms by student number; everyone else is validated
+CURRENT_FORMS = {
+    1: None,
+    3: (Form.RETURNED, "Please confirm your electives with your course adviser, then submit again."),
+    8: (Form.SUBMITTED, ""),
+}
+
+REGISTERED_FROM = {
+    PAST_FIRST: datetime(2025, 10, 13, 9, 0, tzinfo=timezone.utc),
+    PAST_SECOND: datetime(2026, 2, 23, 9, 0, tzinfo=timezone.utc),
+    CURRENT: datetime(2026, 10, 12, 9, 0, tzinfo=timezone.utc),
 }
 
 FEEDBACK = {
@@ -159,8 +193,9 @@ FEEDBACK = {
 }
 
 SUBMITTED_FROM = {
-    SECOND: datetime(2026, 7, 13, 9, 0, tzinfo=timezone.utc),
-    FIRST: datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc),
+    PAST_FIRST: datetime(2026, 2, 9, 9, 0, tzinfo=timezone.utc),
+    PAST_SECOND: datetime(2026, 7, 13, 9, 0, tzinfo=timezone.utc),
+    CURRENT: datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc),
 }
 
 
@@ -204,6 +239,9 @@ class Command(BaseCommand):
         try:
             ResultEntry.objects.filter(registration__offering__in=offerings).delete()
             CourseRegistration.objects.filter(offering__in=offerings).delete()
+            SemesterRegistration.objects.filter(
+                Q(semester__session__in=sessions) | Q(student__user__email__endswith=f"@{DOMAIN}")
+            ).delete()
             ResultSheet.objects.filter(offering__in=offerings).delete()
             offerings.delete()
             Course.objects.filter(department__in=departments).delete()
@@ -257,14 +295,17 @@ class Command(BaseCommand):
         Semester.objects.filter(is_current=True).exclude(session=sessions[CURRENT_SESSION], term=FIRST).update(
             is_current=False
         )
-        self.past, _ = Semester.objects.update_or_create(
-            session=sessions[PAST_SESSION], term=SECOND, defaults={"is_current": False}
-        )
-        self.current, _ = Semester.objects.update_or_create(
-            session=sessions[CURRENT_SESSION], term=FIRST, defaults={"is_current": True}
-        )
+        self.semesters = {}
+        for key in OFFERINGS:
+            session, term = key
+            self.semesters[key], _ = Semester.objects.update_or_create(
+                session=sessions[session],
+                term=term,
+                defaults={"is_current": key == CURRENT, "registration_open": key == CURRENT},
+            )
 
-    def make_user(self, handle, identifier, first_name, last_name, role, department=None, admin=False):
+    def make_user(self, handle, identifier, first_name, last_name, role, department=None):
+        # demo passwords are public, so none of these accounts may reach the django admin
         user, _ = User.objects.update_or_create(
             email=f"{handle}@{DOMAIN}",
             defaults={
@@ -273,8 +314,8 @@ class Command(BaseCommand):
                 "role": role,
                 "department": department,
                 "status": User.Status.ACTIVE,
-                "is_staff": admin,
-                "is_superuser": admin,
+                "is_staff": False,
+                "is_superuser": False,
                 "password": self.password,
             },
         )
@@ -285,9 +326,7 @@ class Command(BaseCommand):
         handle, staff_id, title, first_name, last_name = row
         code = staff_id.split("/")[1]
         department = self.departments.get(code)
-        user = self.make_user(
-            handle, staff_id, first_name, last_name, role, department, admin=role == User.Role.SUPER_ADMIN
-        )
+        user = self.make_user(handle, staff_id, first_name, last_name, role, department)
         profile, _ = StaffProfile.objects.update_or_create(
             user=user,
             defaults={"staff_id": staff_id, "title": title, "phone": f"0803 450 {len(self.logins):04d}"},
@@ -306,6 +345,7 @@ class Command(BaseCommand):
         current_year = int(CURRENT_SESSION[:4])
         self.students = []
         self.ability = {}
+        self.number = {}
         for n, (program_key, level, first_name, last_name, gender, born, ability) in enumerate(STUDENTS, start=1):
             program = self.programs[program_key]
             entry_year = current_year - level // 100 + 1
@@ -328,10 +368,11 @@ class Command(BaseCommand):
             )
             self.students.append(student)
             self.ability[student.pk] = ability
+            self.number[student.pk] = n
 
     def seed_courses(self):
         self.course_programs = {}
-        self.offerings = []
+        courses = {}
         for code, title, units, program_keys in COURSES:
             number = int(code[4:])
             term = FIRST if number % 2 else SECOND
@@ -348,42 +389,86 @@ class Command(BaseCommand):
             programs = [self.programs[key] for key in program_keys]
             course.programs.set(programs)
             self.course_programs[code] = {program.pk for program in programs}
+            courses[code] = course
 
-            lecturer = self.lecturers[OFFERINGS[code][0]]
-            offering, _ = CourseOffering.objects.update_or_create(
-                course=course,
-                semester=self.current if term == FIRST else self.past,
-                defaults={"lecturer": lecturer},
-            )
-            self.offerings.append(offering)
+        self.offerings = []
+        for key, plan in OFFERINGS.items():
+            for code, (lecturer, _, _) in plan.items():
+                offering, _ = CourseOffering.objects.update_or_create(
+                    course=courses[code],
+                    semester=self.semesters[key],
+                    defaults={"lecturer": self.lecturers[lecturer]},
+                )
+                self.offerings.append((key, offering))
 
     def seed_registrations(self):
         units = defaultdict(int)
-        for offering in self.offerings:
+        planned = defaultdict(list)
+        for key, offering in self.offerings:
             course = offering.course
             # last session's students were a level below where they are now
-            level_now = course.level + (100 if offering.semester == self.past else 0)
+            level_now = course.level + (0 if key == CURRENT else 100)
             for student in self.students:
+                if key == CURRENT and CURRENT_FORMS.get(self.number[student.pk], ()) is None:
+                    continue
                 if student.level != level_now or student.program_id not in self.course_programs[course.code]:
                     continue
-                key = (student.pk, offering.semester_id)
-                if units[key] + course.units > settings.MAX_UNITS_PER_SEMESTER:
+                if units[(student.pk, key)] + course.units > settings.MAX_UNITS_PER_SEMESTER:
                     continue
-                units[key] += course.units
-                CourseRegistration.objects.get_or_create(student=student, offering=offering)
+                units[(student.pk, key)] += course.units
+                planned[(student, key)].append(offering)
+
+        forms, registrations = [], []
+        for (student, key), offerings in planned.items():
+            form = self.save_form(student, key)
+            forms.append(form.pk)
+            for offering in offerings:
+                registration, _ = CourseRegistration.objects.update_or_create(
+                    student=student, offering=offering, defaults={"semester_registration": form}
+                )
+                registrations.append(registration.pk)
+
+        # whatever an earlier run registered that the plan has since dropped, student1's current courses included
+        stale = CourseRegistration.objects.filter(offering__in=[offering for _, offering in self.offerings]).exclude(
+            pk__in=registrations
+        )
+        ResultEntry.objects.filter(registration__in=stale).delete()
+        stale.delete()
+        SemesterRegistration.objects.filter(student__in=self.students).exclude(pk__in=forms).delete()
+
+    def save_form(self, student, key):
+        number = self.number[student.pk]
+        status, reason = (CURRENT_FORMS.get(number) if key == CURRENT else None) or (Form.VALIDATED, "")
+        submitted_at = REGISTERED_FROM[key] + timedelta(hours=number)
+        validated = status == Form.VALIDATED
+        form, _ = SemesterRegistration.objects.update_or_create(
+            student=student,
+            semester=self.semesters[key],
+            defaults={
+                "status": status,
+                "submitted_at": submitted_at,
+                "return_reason": reason,
+                "validated_by": self.dept_admins[student.program.department.code] if validated else None,
+                "validated_at": submitted_at + timedelta(days=2) if validated else None,
+            },
+        )
+        return form
 
     def seed_results(self):
-        for position, offering in enumerate(self.offerings):
+        for position, (key, offering) in enumerate(self.offerings):
             code = offering.course.code
-            _, status, fill = OFFERINGS[code]
-            registrations = offering.registrations.select_related("student").order_by("student__matric_no")
-            for row, registration in enumerate(registrations):
-                self.save_scores(registration, code, fill, row, graded=status != Status.DRAFT)
-            self.update_sheet(offering, status, position)
+            _, status, fill = OFFERINGS[key][code]
+            registrations = offering.registrations.select_related("student")
+            on_sheet = validated_registrations(registrations).order_by("student__matric_no")
+            ResultEntry.objects.filter(registration__in=registrations.exclude(pk__in=on_sheet)).delete()
+            for row, registration in enumerate(on_sheet):
+                self.save_scores(registration, key, code, fill, row, graded=status != Status.DRAFT)
+            self.update_sheet(offering, key, status, position)
 
-    def save_scores(self, registration, code, fill, row, graded):
+    def save_scores(self, registration, key, code, fill, row, graded):
         student = registration.student
         ca, exam = demo_scores(self.ability[student.pk], student.matric_no, code)
+        ca, exam = FORCED_SCORES.get((self.number[student.pk], key, code), (ca, exam))
         if fill == "partial":
             ca, exam = [(ca, None), (None, exam), (ca, exam), (None, None)][row % 4]
         elif fill is None:
@@ -403,14 +488,14 @@ class Command(BaseCommand):
             defaults={"ca_score": ca, "exam_score": exam, "total": total, "grade": grade, "grade_point": point},
         )
 
-    def update_sheet(self, offering, status, position):
+    def update_sheet(self, offering, key, status, position):
         sheet = offering.result_sheet
         sheet.status = status
-        sheet.feedback = FEEDBACK.get(offering.course.code, "")
+        sheet.feedback = FEEDBACK.get(offering.course.code, "") if status == Status.REJECTED else ""
         sheet.submitted_by = sheet.submitted_at = sheet.reviewed_by = sheet.reviewed_at = None
         if status != Status.DRAFT:
             sheet.submitted_by = offering.lecturer.user
-            sheet.submitted_at = SUBMITTED_FROM[offering.semester.term] + timedelta(hours=position)
+            sheet.submitted_at = SUBMITTED_FROM[key] + timedelta(hours=position)
         if status in (Status.APPROVED, Status.REJECTED):
             sheet.reviewed_by = self.dept_admins[offering.course.department.code]
             sheet.reviewed_at = sheet.submitted_at + timedelta(days=3)

@@ -6,7 +6,7 @@ from django.core.management import call_command
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
 from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
-from apps.registrations.models import CourseRegistration
+from apps.registrations.models import CourseRegistration, SemesterRegistration
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
 
 pytestmark = pytest.mark.django_db
@@ -96,3 +96,37 @@ def test_students_entry_session_matches_their_matric_year():
     students = StudentProfile.objects.select_related("entry_session")
     assert students.exists()
     assert all(student.entry_session.name[:4] == student.matric_no.split("/")[1] for student in students)
+
+
+def test_no_seeded_account_can_reach_the_django_admin():
+    seed()
+
+    seeded = User.objects.filter(email__endswith="@uemp.test")
+    assert seeded.filter(role=User.Role.SUPER_ADMIN).exists()
+    assert not seeded.filter(is_staff=True).exists()
+    assert not seeded.filter(is_superuser=True).exists()
+
+
+def test_student1_sees_a_preselected_carry_over_and_has_not_submitted(client):
+    seed()
+    client.post(
+        "/api/auth/login/",
+        {"identifier": "student1@uemp.test", "password": "Demo@2026"},
+        content_type="application/json",
+    )
+
+    body = client.get("/api/student/registration/").json()
+
+    assert body["registration"] is None and body["registration_open"]
+    carry_overs = [course for course in body["courses"] if course["is_carry_over"]]
+    assert [(course["code"], course["is_selected"]) for course in carry_overs] == [("CSC 201", True)]
+
+
+def test_current_forms_cover_every_status_and_sheets_only_hold_validated_students():
+    seed()
+
+    current = Semester.objects.get(is_current=True)
+    statuses = set(SemesterRegistration.objects.filter(semester=current).values_list("status", flat=True))
+    assert statuses == set(SemesterRegistration.Status.values)
+    assert not ResultEntry.objects.exclude(registration__semester_registration__status="VALIDATED").exists()
+    assert not SemesterRegistration.objects.exclude(semester=current).exclude(status="VALIDATED").exists()

@@ -73,7 +73,7 @@ docker compose exec api python manage.py seed_demo           # safe to run again
 docker compose exec api python manage.py seed_demo --reset   # wipe the demo rows first
 ```
 
-Run it once before signing in to the web app. It loads two faculties, three departments, sessions from 2022/2023 to 2026/2027 (only the last two have semesters), courses, registrations and result sheets in every state, and 31 accounts on the `uemp.test` domain. Every account uses the password in `SEED_PASSWORD` (default `Demo@2026`), and the command prints the full list of logins when it finishes. `superadmin@uemp.test` can also sign in to the Django admin.
+Run it once before signing in to the web app. It loads two faculties, three departments, sessions from 2022/2023 to 2026/2027 (only the last two have semesters), courses, registrations and result sheets in every state, and 31 accounts on the `uemp.test` domain. Every account uses the password in `SEED_PASSWORD` (default `Demo@2026`), and the command prints the full list of logins when it finishes.
 
 ### Mock data
 

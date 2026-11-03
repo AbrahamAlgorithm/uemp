@@ -17,6 +17,14 @@ def client_ip(request):
         return None
 
 
+def snapshot(instance):
+    data = {}
+    for field in instance._meta.concrete_fields:
+        value = getattr(instance, field.attname)
+        data[field.name] = value.isoformat() if hasattr(value, "isoformat") else value
+    return data
+
+
 def department_of(entity, actor):
     if isinstance(entity, Department):
         return entity
