@@ -33,8 +33,11 @@ export type ResultKey =
   | "rejectSheet"
   | "reopenSheet"
   | "getMyResults"
+  | "downloadScoreTemplate"
+  | "importScores"
   | "getGradeScale"
-  | "updateGradeScale";
+  | "updateGradeScale"
+  | "resetGradeScale";
 
 export const mockApi: Omit<Api, "login" | "logout" | "getSession" | RegistrationKey | ResultKey> = {
   ...commonHandlers,

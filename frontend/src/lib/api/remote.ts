@@ -26,6 +26,9 @@ import type {
   Grade,
   GradeBand,
   GradeDistribution,
+  GradeScale,
+  ImportReport,
+  ImportRow,
   Lecturer,
   LecturerCourse,
   Level,
@@ -58,7 +61,7 @@ import type {
   UserDetail,
   UserStatus,
 } from "../types";
-import { ApiError, request } from "./http";
+import { ApiError, request, requestFile } from "./http";
 
 const get = <T>(path: string) => request<T>(path);
 const getList = async <T>(path: string): Promise<T[]> => {
@@ -273,7 +276,8 @@ const mapSheet = (item: Raw): ResultSheet => ({
 });
 const mapCourseResult = (item: Raw): CourseResult => ({
   registrationId: Number(item.registration_id), code: String(item.code), title: String(item.title), units: Number(item.units),
-  ca: num(item.ca), exam: num(item.exam), total: Number(item.total), grade: item.grade as Grade, gradePoint: Number(item.point),
+  ca: num(item.ca_score), exam: num(item.exam_score), total: Number(item.total), grade: item.grade as Grade,
+  gradePoint: Number(item.grade_point),
   isCarryOver: Boolean(item.is_carry_over),
 });
 const mapStudentResults = (item: Raw): StudentResults => ({
@@ -287,6 +291,24 @@ const mapStudentResults = (item: Raw): StudentResults => ({
 const mapGradeBand = (item: Raw): GradeBand => ({
   grade: item.grade as Grade, min: Number(item.min), max: Number(item.max), point: Number(item.point),
 });
+const mapGradeScale = (item: Raw): GradeScale => ({
+  bands: ((item.bands as Raw[]) ?? []).map(mapGradeBand), isDefault: Boolean(item.is_default),
+});
+const mapImportRow = (item: Raw): ImportRow => ({
+  rowNumber: Number(item.row_number), matricNumber: String(item.matric_no ?? ""), name: (item.name as string | null) ?? null,
+  status: item.status as ImportRow["status"], caBefore: num(item.ca_before), caAfter: num(item.ca_after),
+  examBefore: num(item.exam_before), examAfter: num(item.exam_after), error: (item.error as string | null) ?? null,
+});
+const mapImportReport = (item: Raw): ImportReport => {
+  const summary = item.summary as Raw;
+  return {
+    summary: {
+      rows: Number(summary.rows), willChange: Number(summary.will_change), unchanged: Number(summary.unchanged),
+      errors: Number(summary.errors),
+    },
+    rows: ((item.rows as Raw[]) ?? []).map(mapImportRow),
+  };
+};
 // a field left out of the patch keeps its saved value, null clears it
 const toScoreInput = (score: ScoreInput) => ({
   registration_id: score.registrationId,
@@ -351,6 +373,20 @@ export const remoteApi = {
   submitSheet: async (offeringId: number, confirmIncomplete: boolean) =>
     mapSheet(await post<Raw>(`lecturer/offerings/${offeringId}/sheet/submit/`, { confirm_incomplete: confirmIncomplete })),
   getMySubmissions: async () => (await get<Raw[]>("lecturer/submissions/")).map(mapSubmission),
+  downloadScoreTemplate: (offeringId: number, format: "xlsx" | "csv") =>
+    requestFile(`lecturer/offerings/${offeringId}/sheet/template/?format=${format}`),
+  importScores: async (offeringId: number, file: File, dryRun: boolean) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("dry_run", String(dryRun));
+    try {
+      return mapImportReport(await request<Raw>(`lecturer/offerings/${offeringId}/sheet/import/`, { method: "POST", form }));
+    } catch (error) {
+      // rows with errors still come back as a report, so the caller can show which ones failed
+      if (error instanceof ApiError && (error.data as Raw | null)?.rows) return mapImportReport(error.data as Raw);
+      throw error;
+    }
+  },
 
   getStaffProfile: () => get<StaffProfile>("staff/profile/"),
   updateStaffContact: (input: StaffContactInput) => patch<StaffProfile>("staff/profile/", input),
@@ -411,8 +447,9 @@ export const remoteApi = {
     post<{ detail: string }>("auth/change-password/", input),
   getUniversityReport: () => get<UniversityReport>("reports/university/"),
   getAuditLog: () => get<AuditEntry[]>("audit-log/"),
-  getGradeScale: async () => (await get<Raw[]>("grade-scale/")).map(mapGradeBand),
-  updateGradeScale: async (bands: GradeBand[]) => (await put<Raw[]>("grade-scale/", { bands })).map(mapGradeBand),
+  getGradeScale: async () => mapGradeScale(await get<Raw>("grade-scale/")),
+  updateGradeScale: async (bands: GradeBand[]) => mapGradeScale(await put<Raw>("grade-scale/", { bands, confirm: true })),
+  resetGradeScale: async () => mapGradeScale(await post<Raw>("grade-scale/reset/")),
 };
 
 export type Api = typeof remoteApi;

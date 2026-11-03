@@ -1,101 +1,20 @@
-from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 from django.db.models import Q
 
-from apps.academics.models import AcademicSession, Department, Program, Semester
-from apps.accounts.models import User
 from apps.audit.models import AuditLog
-from apps.courses.models import Course, CourseOffering
-from apps.registrations.models import CourseRegistration, SemesterRegistration
+from apps.registrations.models import SemesterRegistration
 from apps.results.grading import cgpa, gpa, grade_for
-from apps.results.models import GradeScale, ResultEntry, ResultSheet
+from apps.results.models import ResultEntry, ResultSheet
 
-from .conftest import make_user
+from .conftest import enrol, offer
 
 pytestmark = pytest.mark.django_db
 
-WHEN = datetime(2026, 10, 14, tzinfo=timezone.utc)
-FIRST, SECOND = Semester.Term.FIRST, Semester.Term.SECOND
 Form = SemesterRegistration.Status
 Sheet = ResultSheet.Status
-BANDS = [(70, 100, "A", 5), (60, 69, "B", 4), (50, 59, "C", 3), (45, 49, "D", 2), (40, 44, "E", 1), (0, 39, "F", 0)]
 FEEDBACK = "Recheck the CA for MTH/2024/0002 against the class register."
-
-
-@pytest.fixture(autouse=True)
-def scale(db):
-    for min_score, max_score, grade, point in BANDS:
-        GradeScale.objects.create(min_score=min_score, max_score=max_score, grade=grade, point=point)
-
-
-@pytest.fixture
-def calendar(db):
-    past = AcademicSession.objects.create(name="2025/2026")
-    now = AcademicSession.objects.create(name="2026/2027")
-    return {
-        "past_first": Semester.objects.create(session=past, term=FIRST),
-        "past_second": Semester.objects.create(session=past, term=SECOND),
-        "current": Semester.objects.create(session=now, term=FIRST, is_current=True, registration_open=True),
-    }
-
-
-@pytest.fixture
-def mth(csc):
-    return Department.objects.create(faculty=csc.faculty, name="Mathematics", code="MTH")
-
-
-@pytest.fixture
-def staff(people, mth):
-    return {
-        "csc_lecturer": people[User.Role.LECTURER],
-        "mth_lecturer": make_user("lecturer.mth@uemp.test", User.Role.LECTURER, mth, staff_id="CVU/MTH/052"),
-        "mth_admin": make_user("admin.mth@uemp.test", User.Role.DEPT_ADMIN, mth, staff_id="CVU/MTH/012"),
-    }
-
-
-@pytest.fixture
-def students(people, mth):
-    csc_student = people[User.Role.STUDENT].student_profile
-    maths = Program.objects.create(department=mth, name="Mathematics", award="B.Sc.", duration_years=4)
-    return {
-        "csc": csc_student,
-        "mth": make_user(
-            "maths@uemp.test", User.Role.STUDENT, mth, matric_no="MTH/2024/0002", program=maths
-        ).student_profile,
-        "late": make_user(
-            "late@uemp.test", User.Role.STUDENT, csc_student.department, matric_no="CSC/2024/0003",
-            program=csc_student.program,
-        ).student_profile,
-    }
-
-
-def offer(code, department, semester, lecturer, units=3, level=300):
-    course, _ = Course.objects.get_or_create(
-        code=code,
-        defaults={"department": department, "title": code, "units": units, "level": level, "semester_term": semester.term},
-    )
-    return CourseOffering.objects.create(course=course, semester=semester, lecturer=lecturer.staff_profile)
-
-
-def enrol(student, offering, status=Form.VALIDATED):
-    form, _ = SemesterRegistration.objects.get_or_create(
-        student=student, semester=offering.semester, defaults={"status": status, "submitted_at": WHEN}
-    )
-    return CourseRegistration.objects.create(student=student, offering=offering, semester_registration=form)
-
-
-@pytest.fixture
-def mth301(mth, staff, students, calendar):
-    offering = offer("MTH 301", mth, calendar["current"], staff["mth_lecturer"])
-    return {
-        "offering": offering,
-        "sheet": offering.result_sheet,
-        "csc": enrol(students["csc"], offering),
-        "mth": enrol(students["mth"], offering),
-        "late": enrol(students["late"], offering, Form.SUBMITTED),
-    }
 
 
 def sheet_url(offering, suffix=""):
@@ -269,8 +188,15 @@ def test_changing_the_grade_scale_after_submit_keeps_stored_grades(mth301, sign_
     save(api, mth301["offering"], scores(mth301["csc"], ca_score=30, exam_score=35), scores(mth301["mth"], ca_score=40, exam_score=60))
     submit(api, mth301["offering"])
 
-    GradeScale.objects.filter(grade="A").update(min_score=60, point=Decimal("4.5"))
-    GradeScale.objects.filter(grade="B").update(min_score=50, max_score=59)
+    sign_in("superadmin@uemp.test")
+    bands = [
+        {"grade": "A", "min": 60, "max": 100, "point": "4.5"},
+        {"grade": "B", "min": 50, "max": 59, "point": 4},
+        {"grade": "C", "min": 45, "max": 49, "point": 3},
+        {"grade": "F", "min": 0, "max": 44, "point": 0},
+    ]
+    assert api.put("/api/grade-scale/", {"bands": bands, "confirm": True}, format="json").status_code == 200
+    assert grade_for(65).grade == "A"
     sign_in("admin.mth@uemp.test")
     review(api, mth301["sheet"], "approve")
 
@@ -278,7 +204,7 @@ def test_changing_the_grade_scale_after_submit_keeps_stored_grades(mth301, sign_
     assert (entry.total, entry.grade, entry.grade_point) == (Decimal(65), "B", Decimal(4))
     sign_in("student@uemp.test")
     course = api.get("/api/student/results/").json()["semesters"][0]["courses"][0]
-    assert (course["grade"], course["point"]) == ("B", "4.00")
+    assert (course["grade"], course["grade_point"]) == ("B", "4.00")
 
 
 def test_review_summary_counts_blanks_as_zero(mth301, sign_in, api):
@@ -364,6 +290,8 @@ def test_rejection_needs_feedback_and_the_lecturer_can_fix_and_resubmit(mth301, 
 
     assert review(api, mth301["sheet"], "reject").status_code == 400
     assert review(api, mth301["sheet"], "reject", feedback="  ").status_code == 400
+    too_long = review(api, mth301["sheet"], "reject", feedback="x" * 1001)
+    assert too_long.json() == {"feedback": ["Feedback can't be longer than 1000 characters."]}
     assert review(api, mth301["sheet"], "reject", feedback=FEEDBACK).json()["status"] == "REJECTED"
 
     sign_in("lecturer.mth@uemp.test")
@@ -388,6 +316,8 @@ def test_reopening_needs_a_reason_and_hides_results_until_approved_again(mth301,
 
     sign_in("admin.mth@uemp.test")
     assert review(api, mth301["sheet"], "reopen").status_code == 400
+    too_long = review(api, mth301["sheet"], "reopen", reason="x" * 1001)
+    assert too_long.json() == {"reason": ["The reason can't be longer than 1000 characters."]}
     reopened = review(api, mth301["sheet"], "reopen", reason="A script was remarked after an appeal.")
     assert reopened.status_code == 200
     assert reopened.json()["status"] == "DRAFT" and reopened.json()["feedback"] == "A script was remarked after an appeal."
@@ -502,3 +432,13 @@ def test_submissions_list_every_sheet_with_its_timeline(mth301, staff, mth, cale
     assert [(event["action"], event["note"]) for event in rows[0]["timeline"]] == [("SUBMITTED", ""), ("REJECTED", FEEDBACK)]
     assert rows[0]["timeline"][1]["actor"]["id"] == staff["mth_admin"].pk
     assert rows[1]["timeline"] == []
+
+
+def test_long_feedback_reaches_the_audit_log_in_full(mth301, sign_in, api):
+    submitted(mth301, sign_in, api)
+    sign_in("admin.mth@uemp.test")
+    feedback = "x" * 1000
+
+    assert review(api, mth301["sheet"], "reject", feedback=feedback).status_code == 200
+
+    assert AuditLog.objects.get(action="RESULTS_REJECTED").details == feedback

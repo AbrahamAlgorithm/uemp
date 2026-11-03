@@ -1,12 +1,18 @@
+from datetime import datetime, timezone
+
 import pytest
 from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.academics.models import AcademicSession, Department, Faculty, Program
+from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
 from apps.accounts.models import StaffProfile, StudentProfile, User
+from apps.courses.models import Course, CourseOffering
+from apps.registrations.models import CourseRegistration, SemesterRegistration
 
 PASSWORD = "Demo@2026"
+WHEN = datetime(2026, 10, 14, tzinfo=timezone.utc)
+FIRST, SECOND = Semester.Term.FIRST, Semester.Term.SECOND
 
 
 @pytest.fixture(autouse=True)
@@ -72,3 +78,71 @@ def sign_in(api):
         )
 
     return sign_in
+
+
+@pytest.fixture
+def calendar(db):
+    past = AcademicSession.objects.create(name="2025/2026")
+    now = AcademicSession.objects.create(name="2026/2027")
+    return {
+        "past_first": Semester.objects.create(session=past, term=FIRST),
+        "past_second": Semester.objects.create(session=past, term=SECOND),
+        "current": Semester.objects.create(session=now, term=FIRST, is_current=True, registration_open=True),
+    }
+
+
+@pytest.fixture
+def mth(csc):
+    return Department.objects.create(faculty=csc.faculty, name="Mathematics", code="MTH")
+
+
+@pytest.fixture
+def staff(people, mth):
+    return {
+        "csc_lecturer": people[User.Role.LECTURER],
+        "mth_lecturer": make_user("lecturer.mth@uemp.test", User.Role.LECTURER, mth, staff_id="CVU/MTH/052"),
+        "mth_admin": make_user("admin.mth@uemp.test", User.Role.DEPT_ADMIN, mth, staff_id="CVU/MTH/012"),
+    }
+
+
+@pytest.fixture
+def students(people, mth):
+    csc_student = people[User.Role.STUDENT].student_profile
+    maths = Program.objects.create(department=mth, name="Mathematics", award="B.Sc.", duration_years=4)
+    return {
+        "csc": csc_student,
+        "mth": make_user(
+            "maths@uemp.test", User.Role.STUDENT, mth, matric_no="MTH/2024/0002", program=maths
+        ).student_profile,
+        "late": make_user(
+            "late@uemp.test", User.Role.STUDENT, csc_student.department, matric_no="CSC/2024/0003",
+            program=csc_student.program,
+        ).student_profile,
+    }
+
+
+def offer(code, department, semester, lecturer, units=3, level=300):
+    course, _ = Course.objects.get_or_create(
+        code=code,
+        defaults={"department": department, "title": code, "units": units, "level": level, "semester_term": semester.term},
+    )
+    return CourseOffering.objects.create(course=course, semester=semester, lecturer=lecturer.staff_profile)
+
+
+def enrol(student, offering, status=SemesterRegistration.Status.VALIDATED):
+    form, _ = SemesterRegistration.objects.get_or_create(
+        student=student, semester=offering.semester, defaults={"status": status, "submitted_at": WHEN}
+    )
+    return CourseRegistration.objects.create(student=student, offering=offering, semester_registration=form)
+
+
+@pytest.fixture
+def mth301(mth, staff, students, calendar):
+    offering = offer("MTH 301", mth, calendar["current"], staff["mth_lecturer"])
+    return {
+        "offering": offering,
+        "sheet": offering.result_sheet,
+        "csc": enrol(students["csc"], offering),
+        "mth": enrol(students["mth"], offering),
+        "late": enrol(students["late"], offering, SemesterRegistration.Status.SUBMITTED),
+    }

@@ -2,18 +2,58 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.registrations.serializers import PersonRefSerializer, SemesterBriefSerializer, StudentBriefSerializer, person
+from core.serializers import reason_field
 
-from .models import GradeScale, ResultEntry, ResultSheet
-from .services import is_editable, student_count
+from .grading import FAIL
+from .models import ResultEntry, ResultSheet
+from .services import SCALE_WARNING, is_editable, student_count
 
 
-class GradeScaleSerializer(serializers.ModelSerializer):
-    min = serializers.IntegerField(source="min_score")
-    max = serializers.IntegerField(source="max_score")
+class GradeBandSerializer(serializers.Serializer):
+    grade = serializers.CharField(max_length=2)
+    min = serializers.IntegerField(min_value=0, max_value=100)
+    max = serializers.IntegerField(min_value=0, max_value=100)
+    point = serializers.DecimalField(max_digits=3, decimal_places=2, min_value=0, max_value=5)
 
-    class Meta:
-        model = GradeScale
-        fields = ["id", "grade", "min", "max", "point"]
+
+class GradeScaleSerializer(serializers.Serializer):
+    bands = GradeBandSerializer(many=True)
+    is_default = serializers.BooleanField()
+
+
+class UpdateScaleSerializer(serializers.Serializer):
+    bands = GradeBandSerializer(many=True, allow_empty=False)
+    confirm = serializers.BooleanField(default=False)
+
+    def validate_confirm(self, confirm):
+        if not confirm:
+            raise serializers.ValidationError(SCALE_WARNING)
+        return confirm
+
+    def validate_bands(self, bands):
+        bands = sorted(({**band, "grade": band["grade"].strip().upper()} for band in bands), key=lambda band: band["min"])
+        problems = []
+        grades = [band["grade"] for band in bands]
+        if len(set(grades)) != len(grades):
+            problems.append("Each grade can only be used once.")
+        problems += [f"{b['grade']} starts at {b['min']} but ends at {b['max']}." for b in bands if b["min"] > b["max"]]
+        if bands[0]["min"] != 0:
+            problems.append("The lowest band must start at 0.")
+        if bands[-1]["max"] != 100:
+            problems.append("The highest band must end at 100.")
+        for lower, upper in zip(bands, bands[1:]):
+            if upper["min"] <= lower["max"]:
+                problems.append(f"{lower['grade']} and {upper['grade']} overlap.")
+            elif upper["min"] > lower["max"] + 1:
+                first, last = lower["max"] + 1, upper["min"] - 1
+                missing = str(first) if first == last else f"{first}-{last}"
+                problems.append(f"No band covers {missing}, between {lower['grade']} and {upper['grade']}.")
+        # carry-overs and pass rates both look for this grade
+        if bands[0]["grade"] != FAIL:
+            problems.append(f"The band that starts at 0 must be {FAIL}, the grade for a failed course.")
+        if problems:
+            raise serializers.ValidationError(problems)
+        return bands[::-1]
 
 
 def score_field(maximum, name):
@@ -46,12 +86,41 @@ class SubmitSheetSerializer(serializers.Serializer):
     confirm_incomplete = serializers.BooleanField(default=False)
 
 
+class ImportScoresSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    dry_run = serializers.BooleanField(default=True)
+
+
+class ImportSummarySerializer(serializers.Serializer):
+    rows = serializers.IntegerField()
+    will_change = serializers.IntegerField()
+    unchanged = serializers.IntegerField()
+    errors = serializers.IntegerField()
+
+
+class ImportRowSerializer(serializers.Serializer):
+    row_number = serializers.IntegerField()
+    matric_no = serializers.CharField(allow_blank=True)
+    name = serializers.CharField(allow_null=True)
+    status = serializers.ChoiceField(choices=["change", "unchanged", "error"])
+    ca_before = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    ca_after = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    exam_before = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    exam_after = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    error = serializers.CharField(allow_null=True)
+
+
+class ImportReportSerializer(serializers.Serializer):
+    summary = ImportSummarySerializer()
+    rows = ImportRowSerializer(many=True)
+
+
 class RejectSheetSerializer(serializers.Serializer):
-    feedback = serializers.CharField(max_length=1000)
+    feedback = reason_field("Feedback")
 
 
 class ReopenSheetSerializer(serializers.Serializer):
-    reason = serializers.CharField(max_length=1000)
+    reason = reason_field("The reason")
 
 
 class CourseRefSerializer(serializers.Serializer):
@@ -223,11 +292,11 @@ class CourseResultSerializer(serializers.Serializer):
     code = serializers.CharField()
     title = serializers.CharField()
     units = serializers.IntegerField()
-    ca = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
-    exam = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    ca_score = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    exam_score = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
     total = serializers.DecimalField(max_digits=5, decimal_places=2)
     grade = serializers.CharField()
-    point = serializers.DecimalField(max_digits=3, decimal_places=2)
+    grade_point = serializers.DecimalField(max_digits=3, decimal_places=2)
     is_carry_over = serializers.BooleanField()
 
 

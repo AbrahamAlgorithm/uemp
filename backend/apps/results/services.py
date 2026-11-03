@@ -3,7 +3,6 @@ from collections import defaultdict
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
-from django.utils.text import Truncator
 from rest_framework.exceptions import ValidationError
 
 from apps.audit import services as audit
@@ -12,7 +11,7 @@ from apps.registrations.models import CourseRegistration
 from apps.registrations.services import earlier_than, validated_registrations
 from core.exceptions import Conflict
 
-from .grading import FAIL, grade_for, recorded_total
+from .grading import FAIL, active_bands, grade_for, national_bands, recorded_total, replace_scale
 from .models import GradeScale, ResultEntry, ResultSheet
 
 Status = ResultSheet.Status
@@ -33,6 +32,7 @@ NOT_ON_LIST = "This student isn't on the class list."
 DUPLICATE = "This student is listed more than once."
 EMPTY = "There are no students on the class list to submit."
 BLANKS = "Blank scores will be recorded as 0."
+SCALE_WARNING = "Changing the grading scale is not advisable. Confirm to continue."
 
 
 class IncompleteScores(Exception):
@@ -66,7 +66,7 @@ def record(actor, action, sheet, before, after, request=None, details=""):
         after=after,
         request=request,
         target=label(sheet),
-        details=Truncator(details).chars(255),
+        details=details,
     )
 
 
@@ -153,7 +153,7 @@ def timelines(sheets):
     return events
 
 
-def _locked(sheet):
+def lock_sheet(sheet):
     return (
         ResultSheet.objects.select_for_update(of=("self",))
         .select_related("offering__course__department", "offering__semester__session")
@@ -162,8 +162,9 @@ def _locked(sheet):
 
 
 @transaction.atomic
-def save_scores(sheet, rows, actor, request=None):
-    sheet = _locked(sheet)
+def save_scores(sheet, rows, actor, request=None, source=None):
+    """Save score changes, from the grid or, with source set to its filename, from an imported file."""
+    sheet = lock_sheet(sheet)
     if not is_editable(sheet):
         raise Conflict(LOCKED[sheet.status])
     ensure_entries(sheet)
@@ -204,21 +205,18 @@ def save_scores(sheet, rows, actor, request=None):
         return sheet
 
     ResultEntry.objects.bulk_update(changed.values(), [*SCORE_FIELDS, "total", "grade", "grade_point", "updated_at"])
-    record(
-        actor,
-        "SCORES_SAVED",
-        sheet,
-        sheet.status,
-        {"status": sheet.status, "changes": changes},
-        request=request,
-        details=f"{len(changes)} {'score' if len(changes) == 1 else 'scores'} changed",
-    )
+    details = f"{len(changes)} {'score' if len(changes) == 1 else 'scores'} changed"
+    if source is None:
+        record(actor, "SCORES_SAVED", sheet, sheet.status, {"status": sheet.status, "changes": changes}, request, details)
+    else:
+        after = {"status": sheet.status, "file": source, "changes": changes}
+        record(actor, "RESULTS_IMPORTED", sheet, sheet.status, after, request, f"{details} from {source}")
     return sheet
 
 
 @transaction.atomic
 def submit_sheet(sheet, actor, confirm_incomplete=False, request=None):
-    sheet = _locked(sheet)
+    sheet = lock_sheet(sheet)
     if not is_editable(sheet):
         raise Conflict(LOCKED[sheet.status])
     ensure_entries(sheet)
@@ -259,7 +257,7 @@ def submit_sheet(sheet, actor, confirm_incomplete=False, request=None):
 
 
 def _review(sheet, actor, status, action, request, feedback=""):
-    sheet = _locked(sheet)
+    sheet = lock_sheet(sheet)
     if sheet.status != Status.SUBMITTED:
         verb = "approved" if status == Status.APPROVED else "rejected"
         raise Conflict(f"Only submitted results can be {verb}.")
@@ -285,7 +283,7 @@ def reject_sheet(sheet, actor, feedback, request=None):
 
 @transaction.atomic
 def reopen_sheet(sheet, actor, reason, request=None):
-    sheet = _locked(sheet)
+    sheet = lock_sheet(sheet)
     if sheet.status != Status.APPROVED:
         raise Conflict("Only approved results can be reopened.")
     sheet.status = Status.DRAFT
@@ -304,3 +302,30 @@ def reopen_sheet(sheet, actor, reason, request=None):
         details=reason,
     )
     return sheet
+
+
+def scale_snapshot():
+    return [{**band, "point": score(band["point"])} for band in active_bands()]
+
+
+@transaction.atomic
+def update_scale(bands, actor, request=None, action="GRADE_SCALE_UPDATED"):
+    # two saves at once would otherwise both insert and leave overlapping bands
+    list(GradeScale.objects.select_for_update())
+    before = scale_snapshot()
+    replace_scale(bands)
+    after = scale_snapshot()
+    audit.record(
+        actor,
+        action,
+        GradeScale,
+        before={"bands": before},
+        after={"bands": after},
+        request=request,
+        target="Grading scale",
+        details=", ".join(f"{band['grade']} {band['min']}-{band['max']} ({band['point']:g})" for band in after),
+    )
+
+
+def reset_scale(actor, request=None):
+    update_scale(national_bands(), actor, request, action="GRADE_SCALE_RESET")

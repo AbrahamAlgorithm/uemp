@@ -21,7 +21,7 @@ class AuditLog(TimeStampedModel):
     entity_type = models.CharField(max_length=50)
     entity_id = models.CharField(max_length=64)
     target = models.CharField(max_length=200, blank=True)
-    details = models.CharField(max_length=255, blank=True)
+    details = models.TextField(blank=True)
     # lets department admins see their own activity; logs must never block a delete
     department = models.ForeignKey(
         "academics.Department",

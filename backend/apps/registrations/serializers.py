@@ -4,6 +4,7 @@ from rest_framework import serializers
 from apps.academics.models import Semester
 from apps.accounts.models import StudentProfile
 from apps.accounts.serializers import SessionRefSerializer
+from core.serializers import reason_field
 
 from .models import CourseRegistration, SemesterRegistration
 from .services import carry_over_course_ids
@@ -14,7 +15,7 @@ class SubmitRegistrationSerializer(serializers.Serializer):
 
 
 class ReturnRegistrationSerializer(serializers.Serializer):
-    reason = serializers.CharField(max_length=1000)
+    reason = reason_field("The reason")
 
 
 class SemesterBriefSerializer(serializers.ModelSerializer):

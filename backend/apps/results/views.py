@@ -1,25 +1,30 @@
 from collections import defaultdict
 
 from django.db.models import Case, IntegerField, Value, When
+from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.negotiation import DefaultContentNegotiation
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.courses.models import CourseOffering
 from apps.registrations.views import int_param, semester_in_progress, student_of
-from core.permissions import MANAGERS, HasRole, IsDeptAdmin, IsLecturer, IsStudent
+from core.permissions import MANAGERS, HasRole, IsDeptAdmin, IsLecturer, IsStudent, IsSuperAdmin
 from core.scoping import DepartmentScopedQuerysetMixin
 from core.viewsets import PagePagination
 
-from . import services
-from .grading import FAIL, approved_entries, cgpa, gpa, summarise
-from .models import GradeScale, ResultSheet
+from . import imports, services
+from .grading import FAIL, active_bands, approved_entries, cgpa, gpa, is_default, summarise
+from .models import ResultSheet
 from .serializers import (
     GradeScaleSerializer,
+    ImportReportSerializer,
+    ImportScoresSerializer,
     IncompleteEntrySerializer,
     LecturerOfferingSerializer,
     RejectSheetSerializer,
@@ -30,6 +35,7 @@ from .serializers import (
     StudentResultsSerializer,
     SubmissionSerializer,
     SubmitSheetSerializer,
+    UpdateScaleSerializer,
     course_ref,
 )
 
@@ -47,12 +53,44 @@ IncompleteSerializer = inline_serializer(
 )
 
 
-class GradeScaleView(APIView):
-    permission_classes = [IsAuthenticated]
+def scale_data():
+    bands = active_bands()
+    return GradeScaleSerializer({"bands": bands, "is_default": is_default(bands)}).data
 
-    @extend_schema(summary="The grade bands, highest first", responses=GradeScaleSerializer(many=True))
+
+class GradeScaleView(APIView):
+    def get_permissions(self):
+        return [IsSuperAdmin()] if self.request.method == "PUT" else [IsAuthenticated()]
+
+    @extend_schema(summary="The active grading scale, highest band first", responses=GradeScaleSerializer)
     def get(self, request):
-        return Response(GradeScaleSerializer(GradeScale.objects.order_by("-min_score"), many=True).data)
+        return Response(scale_data())
+
+    @extend_schema(
+        summary="Replace the grading scale; only results submitted afterwards use it",
+        request=UpdateScaleSerializer,
+        responses={200: GradeScaleSerializer, 400: OpenApiResponse(description="Not confirmed, or the bands don't cover 0-100 cleanly")},
+    )
+    def put(self, request):
+        serializer = UpdateScaleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.update_scale(serializer.validated_data["bands"], request.user, request)
+        return Response(scale_data())
+
+
+class GradeScaleResetView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    @extend_schema(summary="Restore the national grading scale", request=None, responses=GradeScaleSerializer)
+    def post(self, request):
+        services.reset_scale(request.user, request)
+        return Response(scale_data())
+
+
+class FormatIsFileType(DefaultContentNegotiation):
+    # drf would read ?format= as a renderer name; on the template it picks the file type instead
+    def select_renderer(self, request, renderers, format_suffix=None):
+        return renderers[0], renderers[0].media_type
 
 
 def sheet_detail(sheet):
@@ -157,6 +195,56 @@ class LecturerOfferingViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             body = {"detail": str(error), "incomplete": IncompleteEntrySerializer(error.entries, many=True).data}
             return Response(body, status=status.HTTP_400_BAD_REQUEST)
         return Response(sheet_detail(reloaded(sheet)))
+
+
+    @extend_schema(
+        summary="A score template prefilled with the class list",
+        parameters=[OpenApiParameter("format", str, enum=["xlsx", "csv"], default="xlsx")],
+        responses={200: OpenApiResponse(description="The .xlsx or .csv file")},
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="sheet/template",
+        url_name="sheet-template",
+        content_negotiation_class=FormatIsFileType,
+    )
+    def template(self, request, pk=None):
+        extension = request.query_params.get("format") or "xlsx"
+        if extension not in imports.CONTENT_TYPES:
+            raise ValidationError({"format": "Choose xlsx or csv."})
+        offering = self.get_object()
+        response = HttpResponse(imports.template(offering, extension), content_type=imports.CONTENT_TYPES[extension])
+        response["Content-Disposition"] = f'attachment; filename="{imports.template_name(offering, extension)}"'
+        return response
+
+    @extend_schema(
+        summary="Check an .xlsx or .csv of scores and, when dry_run is false and every row is valid, save it",
+        request={"multipart/form-data": ImportScoresSerializer},
+        responses={
+            200: ImportReportSerializer,
+            400: OpenApiResponse(ImportReportSerializer, description="A bad file, or rows with errors; nothing is saved"),
+            409: OpenApiResponse(description="The sheet is submitted or approved"),
+        },
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="sheet/import",
+        url_name="sheet-import",
+        parser_classes=[MultiPartParser],
+    )
+    def import_scores(self, request, pk=None):
+        serializer = ImportScoresSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        dry_run = serializer.validated_data["dry_run"]
+        report = imports.import_scores(
+            self.sheet_of(), serializer.validated_data["file"], request.user, dry_run, request
+        )
+        failed = not dry_run and report["summary"]["errors"]
+        return Response(
+            ImportReportSerializer(report).data, status=status.HTTP_400_BAD_REQUEST if failed else status.HTTP_200_OK
+        )
 
 
 class LecturerSubmissionsView(APIView):
@@ -264,11 +352,11 @@ def student_results(student):
                 "code": course.code,
                 "title": course.title,
                 "units": course.units,
-                "ca": entry.ca_score,
-                "exam": entry.exam_score,
+                "ca_score": entry.ca_score,
+                "exam_score": entry.exam_score,
                 "total": entry.total,
                 "grade": entry.grade,
-                "point": entry.grade_point,
+                "grade_point": entry.grade_point,
                 "is_carry_over": last_grade.get(course.pk) == FAIL,
             }
         )

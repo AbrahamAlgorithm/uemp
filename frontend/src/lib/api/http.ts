@@ -40,9 +40,9 @@ function ensureCsrfCookie() {
   return csrfCookie;
 }
 
-type SendOptions = Omit<RequestInit, "body"> & { json?: unknown };
+type SendOptions = Omit<RequestInit, "body"> & { json?: unknown; form?: FormData };
 
-async function send(path: string, { json, ...init }: SendOptions = {}) {
+async function send(path: string, { json, form, ...init }: SendOptions = {}) {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (json !== undefined) headers.set("Content-Type", "application/json");
@@ -59,7 +59,8 @@ async function send(path: string, { json, ...init }: SendOptions = {}) {
     ...init,
     method,
     headers,
-    body: json === undefined ? undefined : JSON.stringify(json),
+    // a FormData body sets its own multipart boundary header
+    body: json === undefined ? form : JSON.stringify(json),
     credentials: "include",
   });
 }
@@ -82,10 +83,7 @@ type RequestOptions = SendOptions & {
   redirectToLogin?: boolean;
 };
 
-export async function request<T>(
-  path: string,
-  { refresh = true, redirectToLogin = true, ...options }: RequestOptions = {},
-): Promise<T> {
+async function respond(path: string, { refresh = true, redirectToLogin = true, ...options }: RequestOptions) {
   let response = await send(path, options);
   if (response.status === 401 && refresh && (await refreshSession())) {
     response = await send(path, options);
@@ -93,10 +91,23 @@ export async function request<T>(
   if (response.status === 401 && redirectToLogin && window.location.pathname !== "/login") {
     window.location.assign("/login");
   }
+  return response;
+}
 
-  const isJson = response.headers.get("content-type")?.includes("application/json");
-  const data: unknown = isJson ? await response.json() : null;
+async function readJson(response: Response): Promise<unknown> {
+  return response.headers.get("content-type")?.includes("application/json") ? response.json() : null;
+}
 
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await respond(path, options);
+  const data = await readJson(response);
   if (!response.ok) throw new ApiError(response.status, data);
   return data as T;
+}
+
+export async function requestFile(path: string): Promise<{ blob: Blob; filename: string }> {
+  const response = await respond(path, {});
+  if (!response.ok) throw new ApiError(response.status, await readJson(response));
+  const filename = /filename="([^"]+)"/.exec(response.headers.get("content-disposition") ?? "")?.[1] ?? "download";
+  return { blob: await response.blob(), filename };
 }

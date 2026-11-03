@@ -434,3 +434,27 @@ export interface GradeBand {
   max: number;
   point: number;
 }
+
+export interface GradeScale {
+  bands: GradeBand[];
+  isDefault: boolean;
+}
+
+export type ImportRowStatus = "change" | "unchanged" | "error";
+
+export interface ImportRow {
+  rowNumber: number;
+  matricNumber: string;
+  name: string | null;
+  status: ImportRowStatus;
+  caBefore: number | null;
+  caAfter: number | null;
+  examBefore: number | null;
+  examAfter: number | null;
+  error: string | null;
+}
+
+export interface ImportReport {
+  summary: { rows: number; willChange: number; unchanged: number; errors: number };
+  rows: ImportRow[];
+}

@@ -17,7 +17,7 @@ from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import CourseRegistration, SemesterRegistration
 from apps.registrations.services import validated_registrations
 from apps.results import services as results
-from apps.results.grading import grade_for
+from apps.results.grading import NATIONAL_GRADE_SCALE, grade_for, national_bands, replace_scale
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
 
 DOMAIN = "uemp.test"
@@ -26,15 +26,6 @@ DEFAULT_PASSWORD = "Demo@2026"
 FIRST, SECOND = Semester.Term.FIRST, Semester.Term.SECOND
 Status = ResultSheet.Status
 Form = SemesterRegistration.Status
-
-GRADE_SCALE = [
-    (70, 100, "A", 5),
-    (60, 69, "B", 4),
-    (50, 59, "C", 3),
-    (45, 49, "D", 2),
-    (40, 44, "E", 1),
-    (0, 39, "F", 0),
-]
 
 FACULTIES = [
     ("SCI", "Faculty of Science"),
@@ -274,18 +265,13 @@ class Command(BaseCommand):
             Program.objects.filter(department__in=departments).delete()
             departments.delete()
             Faculty.objects.filter(code__in=[code for code, _ in FACULTIES]).delete()
-            GradeScale.objects.filter(grade__in=[grade for _, _, grade, _ in GRADE_SCALE]).delete()
+            GradeScale.objects.filter(grade__in=[grade for _, _, grade, _ in NATIONAL_GRADE_SCALE]).delete()
         except ProtectedError as error:
             raise CommandError(error.args[0]) from error
 
     def seed_grade_scale(self):
-        self.bands = []
-        for min_score, max_score, grade, point in GRADE_SCALE:
-            band, _ = GradeScale.objects.update_or_create(
-                grade=grade,
-                defaults={"min_score": min_score, "max_score": max_score, "point": point},
-            )
-            self.bands.append(band)
+        replace_scale(national_bands())
+        self.bands = list(GradeScale.objects.order_by("-min_score"))
 
     def seed_structure(self):
         faculties = {}

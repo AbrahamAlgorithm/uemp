@@ -3,6 +3,7 @@
 import { BookCheck, CalendarCheck, GraduationCap, Printer } from "lucide-react";
 import Link from "next/link";
 
+import { GradeScaleLegend } from "@/components/grade-scale-legend";
 import { PageHeader } from "@/components/page-header";
 import { SemesterResultsTable } from "@/components/semester-results-table";
 import { StatCard } from "@/components/stat-card";
@@ -16,12 +17,13 @@ import { SEMESTER_LABELS } from "@/lib/constants";
 import { semesterLabel } from "@/lib/format";
 import { formatGpa } from "@/lib/grading";
 
-
 export default function StudentResultsPage() {
-  const { data, error, reload } = useAsync(api.getMyResults);
+  const { data: loaded, error, reload } = useAsync(() => Promise.all([api.getMyResults(), api.getGradeScale()]));
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
-  if (!data) return <PageSkeleton cards={3} rows={8} />;
+  if (!loaded) return <PageSkeleton cards={3} rows={8} />;
+
+  const [data, scale] = loaded;
 
   if (data.semesters.length === 0) {
     return (
@@ -34,6 +36,9 @@ export default function StudentResultsPage() {
             description="Results appear here once your department approves them."
           />
         </Card>
+        <div className="mt-6">
+          <GradeScaleLegend scale={scale} />
+        </div>
       </>
     );
   }
@@ -107,6 +112,7 @@ export default function StudentResultsPage() {
             </CardContent>
           </Card>
         ))}
+        <GradeScaleLegend scale={scale} />
       </div>
     </>
   );

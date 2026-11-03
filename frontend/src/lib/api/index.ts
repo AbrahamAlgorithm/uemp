@@ -72,6 +72,8 @@ const resultApi: Pick<Api, ResultKey> = {
   saveScores: remoteApi.saveScores,
   submitSheet: remoteApi.submitSheet,
   getMySubmissions: remoteApi.getMySubmissions,
+  downloadScoreTemplate: remoteApi.downloadScoreTemplate,
+  importScores: remoteApi.importScores,
   getResultSheets: remoteApi.getResultSheets,
   getResultSheet: remoteApi.getResultSheet,
   approveSheet: remoteApi.approveSheet,
@@ -80,6 +82,7 @@ const resultApi: Pick<Api, ResultKey> = {
   getMyResults: remoteApi.getMyResults,
   getGradeScale: remoteApi.getGradeScale,
   updateGradeScale: remoteApi.updateGradeScale,
+  resetGradeScale: remoteApi.resetGradeScale,
 };
 
 export const api: Api = usingMocks ? { ...mockApi, ...realAuth, ...managementApi, ...registrationApi, ...resultApi } : remoteApi;

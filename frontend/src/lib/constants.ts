@@ -6,6 +6,7 @@ export const UNIVERSITY_ADDRESS = "Ibadan, Oyo State, Nigeria";
 export const MAX_UNITS_PER_SEMESTER = 24;
 export const CA_MAX = 40;
 export const EXAM_MAX = 60;
+export const REASON_MAX_LENGTH = 1000;
 export const LEVELS: Level[] = [100, 200, 300, 400, 500];
 
 export const ROLE_LABELS: Record<Role, string> = {

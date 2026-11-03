@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from django.db import IntegrityError, transaction
 
-from apps.academics.models import AcademicSession, Department, Program, Semester
+from apps.academics.models import Department, Program, Semester
 from apps.accounts.models import StudentProfile, User
 from apps.audit.models import AuditLog
 from apps.courses.models import Course, CourseOffering
@@ -20,17 +20,6 @@ URL = "/api/student/registration/"
 FORMS = "/api/registration-forms/"
 WHEN = datetime(2026, 1, 10, tzinfo=timezone.utc)
 FIRST, SECOND = Semester.Term.FIRST, Semester.Term.SECOND
-
-
-@pytest.fixture
-def calendar(db):
-    past = AcademicSession.objects.create(name="2025/2026")
-    now = AcademicSession.objects.create(name="2026/2027")
-    return {
-        "past_first": Semester.objects.create(session=past, term=FIRST),
-        "past_second": Semester.objects.create(session=past, term=SECOND),
-        "current": Semester.objects.create(session=now, term=FIRST, is_current=True, registration_open=True),
-    }
 
 
 @pytest.fixture
@@ -294,6 +283,9 @@ def test_submitted_forms_come_first(submitted, eee_form, sign_in, api):
 def test_returning_needs_a_reason_and_is_blocked_by_scores(submitted, sign_in, api):
     sign_in("admin.csc@uemp.test")
     assert api.post(f"{FORMS}{submitted.pk}/return/", {}, format="json").status_code == 400
+    too_long = api.post(f"{FORMS}{submitted.pk}/return/", {"reason": "x" * 1001}, format="json")
+    assert too_long.status_code == 400
+    assert too_long.json() == {"reason": ["The reason can't be longer than 1000 characters."]}
 
     registration = submitted.course_registrations.get()
     entry = ResultEntry.objects.create(registration=registration, exam_score=Decimal(40))

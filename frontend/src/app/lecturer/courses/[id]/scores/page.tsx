@@ -47,7 +47,7 @@ export default function ScoreEntryPage() {
         <ScoreEntry
           key={`${sheet.id}-${sheet.status}`}
           sheet={sheet}
-          scale={scale}
+          scale={scale.bands}
           onSaved={(next) => setData([next, scale])}
           onSubmitted={reload}
         />

@@ -1,6 +1,6 @@
 import ipaddress
 
-from django.db import transaction
+from django.db import models, transaction
 from rest_framework.throttling import BaseThrottle
 
 from apps.academics.models import Department
@@ -43,7 +43,8 @@ def record(actor, action, entity, before=None, after=None, request=None, target=
         actor_email=getattr(actor, "email", ""),
         action=action,
         entity_type=entity._meta.label_lower,
-        entity_id=str(entity.pk),
+        # a model class stands for the whole table, as with the grading scale
+        entity_id=str(entity.pk) if isinstance(entity, models.Model) else "",
         target=target,
         details=details,
         department=department_of(entity, actor),

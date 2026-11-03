@@ -1,11 +1,21 @@
 "use client";
 
-import { Save, Send } from "lucide-react";
+import { Save, Send, Upload } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ImportScoresDialog, TemplateDownload } from "@/components/score-import";
 import { SheetBanner } from "@/components/sheet-banner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -54,6 +64,8 @@ export function ScoreEntry({ sheet, scale, onSaved, onSubmitted }: ScoreEntryPro
   const [draft, setDraft] = useState<Draft>({});
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [unsavedBeforeImport, setUnsavedBeforeImport] = useState(false);
 
   const rows = sheet.entries.map((entry) => {
     const values = draft[entry.registrationId] ?? saved(entry);
@@ -135,6 +147,37 @@ export function ScoreEntry({ sheet, scale, onSaved, onSubmitted }: ScoreEntryPro
     }
   };
 
+  const startImport = () => (dirty ? setUnsavedBeforeImport(true) : setImporting(true));
+
+  const saveThenImport = async () => {
+    if (invalid) {
+      toast.error("Fix the highlighted scores, or discard them, before importing.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await persist();
+      setUnsavedBeforeImport(false);
+      setImporting(true);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const discardThenImport = () => {
+    setDraft({});
+    setUnsavedBeforeImport(false);
+    setImporting(true);
+  };
+
+  const refresh = () =>
+    api
+      .getLecturerSheet(sheet.offeringId)
+      .then(onSaved)
+      .catch((error: unknown) => toast.error(errorMessage(error)));
+
   const openSubmit = () => {
     if (invalid) {
       toast.error("Fix the highlighted scores before submitting.");
@@ -146,6 +189,21 @@ export function ScoreEntry({ sheet, scale, onSaved, onSubmitted }: ScoreEntryPro
   return (
     <div className="space-y-4">
       <SheetBanner sheet={sheet} audience="lecturer" />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {sheet.editable
+            ? "Type scores into the grid, or fill in the template and import it."
+            : "Scores can't be changed or imported while the sheet is submitted or approved."}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <TemplateDownload offeringId={sheet.offeringId} disabled={!sheet.editable} />
+          <Button variant="outline" onClick={startImport} disabled={!sheet.editable || saving}>
+            <Upload />
+            Import scores
+          </Button>
+        </div>
+      </div>
 
       <Card size="sm">
         <Table>
@@ -254,6 +312,30 @@ export function ScoreEntry({ sheet, scale, onSaved, onSubmitted }: ScoreEntryPro
           </div>
         </div>
       )}
+
+      <AlertDialog open={unsavedBeforeImport} onOpenChange={(open) => !saving && setUnsavedBeforeImport(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save your changes first?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The grid has scores you haven&apos;t saved. An import works from the saved sheet, so save or discard them before
+              you import a file.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <Button variant="outline" onClick={discardThenImport} disabled={saving}>
+              Discard changes
+            </Button>
+            <Button onClick={saveThenImport} disabled={saving}>
+              {saving && <Spinner />}
+              Save and continue
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ImportScoresDialog offeringId={sheet.offeringId} open={importing} onOpenChange={setImporting} onImported={refresh} />
 
       <ConfirmDialog
         open={confirming}
