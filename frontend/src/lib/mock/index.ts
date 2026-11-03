@@ -15,4 +15,5 @@ export const mockApi: Omit<Api, "login" | "logout" | "getSession"> = {
   ...resultHandlers,
   ...departmentHandlers,
   ...adminHandlers,
+  changePassword: async () => ({ detail: "Password changed successfully." }),
 };

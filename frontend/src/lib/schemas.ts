@@ -29,6 +29,18 @@ export const staffContactSchema = z.object({
 });
 export type StaffContactInput = z.infer<typeof staffContactSchema>;
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string().min(8, "Use at least 8 characters"),
+    confirmPassword: z.string().min(1, "Confirm your new password"),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  });
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 export const studentSchema = z.object({
   firstName: requiredText("First name", 60),
   lastName: requiredText("Last name", 60),
@@ -41,6 +53,7 @@ export const studentSchema = z.object({
   level: pick("level"),
   gender: z.enum(["M", "F"], { error: "Select a gender" }),
   phone,
+  initialPassword: z.string().min(8, "Use at least 8 characters").optional(),
 });
 export type StudentInput = z.infer<typeof studentSchema>;
 
@@ -54,6 +67,7 @@ export const lecturerSchema = z.object({
     .trim()
     .regex(/^[A-Z]{3}\/[A-Z]{2,3}\/\d{3}$/, "Use the format CVU/CSC/014"),
   phone,
+  initialPassword: z.string().min(8, "Use at least 8 characters").optional(),
 });
 export type LecturerInput = z.infer<typeof lecturerSchema>;
 

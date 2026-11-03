@@ -46,7 +46,7 @@ class FailedLogins:
     window = 60
 
     def __init__(self, user, identifier):
-        # one count per account however it's typed; unknown names count too so lockouts reveal nothing
+        # known aliases share an account lockout; unknown identifiers remain normalized and isolated
         subject = f"user:{user.pk}" if user is not None else f"id:{identifier.strip().lower()}"
         self.key = f"failed-logins:{subject}"
 
@@ -62,4 +62,3 @@ class FailedLogins:
 
     def clear(self):
         cache.delete(self.key)
-

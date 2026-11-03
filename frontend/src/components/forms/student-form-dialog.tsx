@@ -69,6 +69,7 @@ export function StudentFormDialog({ open, onOpenChange, student, programs, onSav
         <TextField control={form.control} name="lastName" label="Last name" autoComplete="off" />
         <TextField control={form.control} name="email" label="Email" type="email" autoComplete="off" />
         <TextField control={form.control} name="phone" label="Phone number" type="tel" autoComplete="off" />
+        {!student && <TextField control={form.control} name="initialPassword" label="Initial password" type="password" autoComplete="new-password" />}
         <TextField control={form.control} name="matricNumber" label="Matric number" placeholder="CSC/2026/0001" />
         <SelectField
           control={form.control}

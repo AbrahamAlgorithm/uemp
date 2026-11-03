@@ -73,6 +73,7 @@ export function LecturerFormDialog({ open, onOpenChange, lecturer, onSaved }: Le
         <TextField control={form.control} name="lastName" label="Last name" autoComplete="off" />
         <TextField control={form.control} name="email" label="Email" type="email" autoComplete="off" />
         <TextField control={form.control} name="phone" label="Phone number" type="tel" autoComplete="off" />
+        {!lecturer && <TextField control={form.control} name="initialPassword" label="Initial password" type="password" autoComplete="new-password" />}
       </div>
     </FormDialog>
   );

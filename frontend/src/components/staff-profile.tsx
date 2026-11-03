@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { DetailList } from "@/components/detail-list";
+import { ChangePasswordButton } from "@/components/change-password";
 import { FormDialog } from "@/components/form-dialog";
 import { TextField } from "@/components/form-fields";
 import { PageHeader } from "@/components/page-header";
@@ -41,16 +42,19 @@ export function StaffProfileView() {
         title="My profile"
         description="Contact the registry to change anything other than your contact details."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => {
-              form.reset({ phone: data.phone });
-              setEditing(true);
-            }}
-          >
-            <Pencil />
-            Edit contact details
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                form.reset({ phone: data.phone });
+                setEditing(true);
+              }}
+            >
+              <Pencil />
+              Edit contact details
+            </Button>
+            <ChangePasswordButton />
+          </div>
         }
       />
       <div className="grid gap-6 lg:grid-cols-3">

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { DetailList } from "@/components/detail-list";
+import { ChangePasswordButton } from "@/components/change-password";
 import { FormDialog } from "@/components/form-dialog";
 import { TextareaField, TextField } from "@/components/form-fields";
 import { PageHeader } from "@/components/page-header";
@@ -39,16 +40,19 @@ export default function StudentProfilePage() {
         title="Profile"
         description="You can update your phone number and address. Your department handles any other changes."
         actions={
-          <Button
-            variant="outline"
-            onClick={() => {
-              form.reset({ phone: data.phone, address: data.address });
-              setEditing(true);
-            }}
-          >
-            <Pencil />
-            Edit contact details
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                form.reset({ phone: data.phone, address: data.address });
+                setEditing(true);
+              }}
+            >
+              <Pencil />
+              Edit contact details
+            </Button>
+            <ChangePasswordButton />
+          </div>
         }
       />
       <div className="grid gap-6 lg:grid-cols-2">
