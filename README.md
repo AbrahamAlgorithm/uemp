@@ -66,6 +66,15 @@ Create an admin user:
 docker compose exec api python manage.py createsuperuser
 ```
 
+### Demo data
+
+```bash
+docker compose exec api python manage.py seed_demo           # safe to run again
+docker compose exec api python manage.py seed_demo --reset   # wipe the demo rows first
+```
+
+This loads two faculties, three departments, the 2025/2026 and 2026/2027 sessions, courses, registrations and result sheets in every state, and 31 accounts on the `uemp.test` domain. Every account uses the password in `SEED_PASSWORD` (default `Demo@2026`), and the command prints the full list of logins when it finishes. `superadmin@uemp.test` can also sign in to the Django admin.
+
 ### Mock data
 
 With `NEXT_PUBLIC_USE_MOCKS=true` (the default in compose and `npm run dev`) the UI reads and writes an in-browser copy of the seed data in `frontend/src/lib/mock`, so changes last until the page is reloaded. Pages only import from `lib/api`; `lib/api/remote.ts` lists the endpoints the UI expects, and setting the flag to `false` switches every page to them.
