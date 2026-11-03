@@ -25,7 +25,7 @@ services:
              python manage.py runserver 0.0.0.0:8000"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
-      SECRET_KEY: ${SECRET_KEY:-django-insecure-local-dev-only}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-local-dev-only-not-for-production}
       DEBUG: ${DEBUG:-true}
       DATABASE_URL: postgres://${POSTGRES_USER:-uemp}:${POSTGRES_PASSWORD:-uemp}@db:5432/${POSTGRES_DB:-uemp}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,api}

@@ -1,7 +1,7 @@
 from .base import *  # noqa: F403
 from .base import env
 
-SECRET_KEY = env("SECRET_KEY", default="django-insecure-local-dev-only")
+SECRET_KEY = env("SECRET_KEY", default="django-insecure-local-dev-only-not-for-production")
 
 DEBUG = env.bool("DEBUG", default=True)
 
