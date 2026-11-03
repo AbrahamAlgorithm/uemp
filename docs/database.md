@@ -1,49 +1,154 @@
 # Database Design
 
-> Placeholder. To be written alongside the models.
-
-## Overview
-
-_TBD_
+PostgreSQL 16. Every table has a `bigint` id and `created_at` / `updated_at` from `core.models.TimeStampedModel` (the audit log keeps only `created_at`). Foreign keys between academic records use `PROTECT`, so a row that is still referenced can't be deleted.
 
 ## Entity-relationship diagram
 
-_TBD_
+```mermaid
+erDiagram
+    FACULTY ||--o{ DEPARTMENT : contains
+    DEPARTMENT ||--o{ PROGRAM : runs
+    DEPARTMENT ||--o{ COURSE : owns
+    DEPARTMENT |o--o{ USER : "belongs to"
+    ACADEMIC_SESSION ||--o{ SEMESTER : "split into"
+    USER ||--o| STUDENT_PROFILE : has
+    USER ||--o| LECTURER_PROFILE : has
+    PROGRAM ||--o{ STUDENT_PROFILE : enrols
+    PROGRAM }o--o{ COURSE : "offered to"
+    COURSE ||--o{ COURSE_OFFERING : "runs as"
+    SEMESTER ||--o{ COURSE_OFFERING : schedules
+    LECTURER_PROFILE |o--o{ COURSE_OFFERING : teaches
+    STUDENT_PROFILE ||--o{ COURSE_REGISTRATION : makes
+    COURSE_OFFERING ||--o{ COURSE_REGISTRATION : takes
+    COURSE_OFFERING ||--|| RESULT_SHEET : "graded on"
+    COURSE_REGISTRATION ||--o| RESULT_ENTRY : "scored in"
+    USER |o--o{ RESULT_SHEET : "submits / reviews"
+    USER |o--o{ AUDIT_LOG : performs
+
+    FACULTY {
+        bigint id PK
+        varchar name
+        varchar code UK
+    }
+    DEPARTMENT {
+        bigint id PK
+        bigint faculty_id FK
+        varchar name
+        varchar code UK
+    }
+    PROGRAM {
+        bigint id PK
+        bigint department_id FK
+        varchar name "unique per department"
+        smallint duration_years "4 to 6"
+    }
+    ACADEMIC_SESSION {
+        bigint id PK
+        varchar name UK "2026/2027"
+    }
+    SEMESTER {
+        bigint id PK
+        bigint session_id FK
+        varchar term "FIRST or SECOND"
+        bool is_current "at most one true"
+    }
+    USER {
+        bigint id PK
+        varchar email UK
+        varchar role
+        varchar status
+        bigint department_id FK "null only for SUPER_ADMIN"
+    }
+    STUDENT_PROFILE {
+        bigint id PK
+        bigint user_id FK, UK
+        varchar matric_no UK
+        bigint program_id FK
+        smallint level "100 to 500"
+        varchar phone
+        varchar address
+    }
+    LECTURER_PROFILE {
+        bigint id PK
+        bigint user_id FK, UK
+        varchar staff_id UK
+        varchar title
+    }
+    COURSE {
+        bigint id PK
+        bigint department_id FK
+        varchar code UK
+        varchar title
+        smallint units "1 to 6"
+        smallint level "100 to 500"
+        varchar semester_term "FIRST or SECOND"
+    }
+    COURSE_OFFERING {
+        bigint id PK
+        bigint course_id FK
+        bigint semester_id FK
+        bigint lecturer_id FK "nullable"
+    }
+    COURSE_REGISTRATION {
+        bigint id PK
+        bigint student_id FK
+        bigint offering_id FK
+    }
+    GRADE_SCALE {
+        bigint id PK
+        smallint min_score
+        smallint max_score
+        varchar grade
+        decimal point
+    }
+    RESULT_SHEET {
+        bigint id PK
+        bigint offering_id FK, UK
+        varchar status "DRAFT, SUBMITTED, APPROVED, REJECTED"
+        bigint submitted_by_id FK
+        timestamptz submitted_at
+        bigint reviewed_by_id FK
+        timestamptz reviewed_at
+        text feedback
+    }
+    RESULT_ENTRY {
+        bigint id PK
+        bigint registration_id FK, UK
+        decimal ca_score "0 to 30"
+        decimal exam_score "0 to 70"
+        decimal total
+        varchar grade
+        decimal grade_point
+    }
+    AUDIT_LOG {
+        bigint id PK
+        bigint actor_id FK "nullable"
+        varchar actor_email
+        varchar action
+        varchar entity_type
+        varchar entity_id
+        jsonb before
+        jsonb after
+        inet ip_address
+        timestamptz created_at
+    }
+```
 
 ## Tables
 
-### accounts
-
-_TBD_
-
-### academics
-
-_TBD_
-
-### courses
-
-_TBD_
-
-### registrations
-
-_TBD_
-
-### results
-
-_TBD_
-
-### audit
-
-_TBD_
-
-## Indexes and constraints
-
-_TBD_
-
-## Migrations policy
-
-_TBD_
-
-## Backups and retention
-
-_TBD_
+- `academics_faculty`: top level of the university structure; `code` is unique.
+- `academics_department`: a department inside a faculty; `code` is unique.
+- `academics_program`: a degree programme run by a department; `(department, name)` is unique and `duration_years` is between 4 and 6.
+- `academics_academicsession`: an academic year such as `2026/2027`; `name` is unique.
+- `academics_semester`: the FIRST or SECOND term of a session; `(session, term)` is unique, and a partial unique index on `is_current = true` allows only one current semester.
+- `accounts_user`: the sign-in account for every role; `email` is unique and `department` is null if and only if `role = SUPER_ADMIN`.
+- `accounts_studentprofile`: student details, one per user and deleted with it; `matric_no` is unique, `level` is one of 100, 200, 300, 400, 500, and the department is read through `program`.
+- `accounts_lecturerprofile`: lecturer details, one per user and deleted with it; `staff_id` is unique.
+- `courses_course`: a catalogue course owned by a department; `code` is unique, `units` is 1 to 6, `level` is one of 100 to 500, and `semester_term` is FIRST or SECOND.
+- `courses_course_programs`: join table for the programmes a course is offered to.
+- `courses_courseoffering`: a course running in a given semester; `(course, semester)` is unique, `lecturer` is set to null if the lecturer profile is deleted, and saving a new offering creates its result sheet.
+- `registrations_courseregistration`: a student registered on an offering; `(student, offering)` is unique. The 24-unit cap (`MAX_UNITS_PER_SEMESTER`) is checked in application code, not by the database.
+- `results_gradescale`: maps a score band to a grade and grade point; `0 <= min_score <= max_score <= 100`.
+- `results_resultsheet`: one per offering, created as DRAFT when the offering is created; `status` is indexed, and the submitter and reviewer are nullable references to users that can't be deleted while referenced.
+- `results_resultentry`: a student's score for one registration, at most one per registration; `ca_score` is 0 to 30 and `exam_score` is 0 to 70, with `total`, `grade` and `grade_point` stored alongside.
+- `audit_auditlog`: an append-only record of who changed what; indexed on `(entity_type, entity_id)` and on `created_at`. `actor` is set to null when the user is deleted, while `actor_email` keeps the name, and it is read-only in the admin.

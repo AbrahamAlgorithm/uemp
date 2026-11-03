@@ -1,6 +1,10 @@
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Q
+
+from apps.academics.models import Level
+from core.models import TimeStampedModel
 
 
 class UserManager(BaseUserManager):
@@ -31,7 +35,7 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, **extra_fields)
 
 
-class User(AbstractUser):
+class User(AbstractUser, TimeStampedModel):
     class Role(models.TextChoices):
         STUDENT = "STUDENT", "Student"
         LECTURER = "LECTURER", "Lecturer"
@@ -47,11 +51,57 @@ class User(AbstractUser):
     email = models.EmailField("email address", unique=True)
     role = models.CharField(max_length=20, choices=Role.choices)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    department = models.ForeignKey(
+        "academics.Department",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="users",
+    )
 
     objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(role="SUPER_ADMIN") & Q(department__isnull=True))
+                | (~Q(role="SUPER_ADMIN") & Q(department__isnull=False)),
+                name="user_department_null_only_for_super_admin",
+            ),
+        ]
+
     def __str__(self):
         return self.email
+
+
+class StudentProfile(TimeStampedModel):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
+    matric_no = models.CharField(max_length=20, unique=True)
+    program = models.ForeignKey("academics.Program", on_delete=models.PROTECT, related_name="students")
+    level = models.PositiveSmallIntegerField(choices=Level.choices)
+    phone = models.CharField(max_length=20, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(level__in=Level.values), name="student_profile_valid_level"),
+        ]
+
+    def __str__(self):
+        return self.matric_no
+
+    @property
+    def department(self):
+        return self.program.department
+
+
+class LecturerProfile(TimeStampedModel):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="lecturer_profile")
+    staff_id = models.CharField(max_length=20, unique=True)
+    title = models.CharField(max_length=30, blank=True)
+
+    def __str__(self):
+        return f"{self.staff_id} {self.user.get_full_name()}".strip()
