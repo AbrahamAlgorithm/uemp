@@ -1,0 +1,11 @@
+[run]
+source = apps,core,config
+omit =
+    */migrations/*
+    */tests/*
+    manage.py
+    config/wsgi.py
+    config/settings/*
+
+[report]
+skip_empty = true

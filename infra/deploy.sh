@@ -11,8 +11,6 @@ DB_NAME="uemp"
 DB_USER="uemp"
 DOMAIN="uemp.abrahamalgorithm.tech"
 DEMO_ACCOUNTS="superadmin@uemp.test admin.csc@uemp.test lecturer1.csc@uemp.test student1@uemp.test"
-# pages other than sign-in still read mock data until their endpoints exist
-USE_MOCKS="${USE_MOCKS:-true}"
 
 # point every gcloud call at the project without changing the global config
 export CLOUDSDK_CORE_PROJECT="$PROJECT_ID"
@@ -62,14 +60,16 @@ service_urls() {
   gcloud run services describe "$1" --region "$REGION" \
     --format 'value(metadata.annotations."run.googleapis.com/urls")' 2>/dev/null | tr -d '[]" ' | tr ',' '\n'
 }
-known_urls() {
-  { service_urls uemp-api; service_urls uemp-web; printf '%s\n' "$API_URL" "$WEB_URL" "https://${DOMAIN}"; } | grep . | sort -u
-}
+api_urls() { { service_urls uemp-api; printf '%s\n' "$API_URL"; } | grep . | sort -u; }
+web_urls() { { service_urls uemp-web; printf '%s\n' "$WEB_URL" "https://${DOMAIN}"; } | grep . | sort -u; }
+# the api only ever sees its own host (the next proxy and the swagger page call it directly); browsers
+# send the web origin, or the api origin from swagger
 api_env() {
-  local urls
-  urls="$(known_urls)"
-  printf '^|^DJANGO_SETTINGS_MODULE=config.settings.prod|ALLOWED_HOSTS=%s|CSRF_TRUSTED_ORIGINS=%s' \
-    "$(paste -sd, - <<<"${urls//https:\/\//}")" "$(paste -sd, - <<<"$urls")"
+  local api web
+  api="$(api_urls)"
+  web="$(web_urls)"
+  printf '^|^DJANGO_SETTINGS_MODULE=config.settings.prod|ALLOWED_HOSTS=%s|CSRF_TRUSTED_ORIGINS=%s|CORS_ALLOWED_ORIGINS=%s' \
+    "$(paste -sd, - <<<"${api//https:\/\//}")" "$(paste -sd, - <<<"$api"$'\n'"$web")" "$(paste -sd, - <<<"$web")"
 }
 
 step "1. enable apis"
@@ -136,7 +136,7 @@ gcloud run deploy uemp-api \
   --add-cloudsql-instances "$SQL_CONNECTION" \
   --set-env-vars "$API_ENV" \
   --set-secrets "SECRET_KEY=DJANGO_SECRET_KEY:latest,DATABASE_URL=DATABASE_URL:latest" \
-  --min-instances 0 \
+  --min-instances 1 \
   --max-instances 2 \
   --allow-unauthenticated
 
@@ -157,11 +157,11 @@ gcloud run jobs execute uemp-migrate --region "$REGION" --wait
 step "9. build and deploy uemp-web"
 if ! exists gcloud artifacts docker images describe "$WEB_IMAGE"; then
   build_config="$WORK/web-build.yaml"
-  # next bakes both values in at build time, and --tag can't pass build args
+  # next bakes the api url in at build time, and --tag can't pass build args
   cat > "$build_config" <<EOF
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "--build-arg", "API_URL=${API_URL}", "--build-arg", "NEXT_PUBLIC_USE_MOCKS=${USE_MOCKS}", "-t", "${WEB_IMAGE}", "."]
+    args: ["build", "--build-arg", "API_URL=${API_URL}", "-t", "${WEB_IMAGE}", "."]
 images: ["${WEB_IMAGE}"]
 EOF
   gcloud builds submit "$SRC/frontend" --config "$build_config" --ignore-file "$(upload_ignore frontend)"
@@ -169,7 +169,7 @@ fi
 gcloud run deploy uemp-web \
   --image "$WEB_IMAGE" \
   --region "$REGION" \
-  --min-instances 0 \
+  --min-instances 1 \
   --allow-unauthenticated
 
 if [[ "$(api_env)" != "$API_ENV" ]]; then
