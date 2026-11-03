@@ -4,7 +4,7 @@ from django.middleware.csrf import get_token
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
@@ -20,9 +20,10 @@ from .authentication import AUTH_HEADER, enforce_csrf
 from .cookies import REFRESH_COOKIE, clear_auth_cookies, set_auth_cookies
 from .models import User
 from .serializers import LoginSerializer, MeSerializer
-from .services import can_sign_in, find_user, identifier_of, me_queryset
+from .services import FailedLogins, can_sign_in, find_user, identifier_of, me_queryset
 
 INVALID_CREDENTIALS = "Invalid credentials."
+TOO_MANY_FAILURES = "Too many failed attempts. Try again in a minute."
 SESSION_ENDED = "Your session has ended. Sign in again."
 
 
@@ -74,7 +75,7 @@ class LoginView(PublicAuthView):
             200: MeSerializer,
             401: OpenApiResponse(description=INVALID_CREDENTIALS),
             403: OpenApiResponse(description=INACTIVE_ACCOUNT),
-            429: OpenApiResponse(description="More than 5 attempts in a minute"),
+            429: OpenApiResponse(description="5 failed attempts on one account, or 30 attempts from one IP, in a minute"),
         },
     )
     def post(self, request):
@@ -82,14 +83,22 @@ class LoginView(PublicAuthView):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
             raise AuthenticationFailed(INVALID_CREDENTIALS)
+        identifier = serializer.validated_data["identifier"]
         password = serializer.validated_data["password"]
-        user = find_user(serializer.validated_data["identifier"])
+        user = find_user(identifier)
+        failures = FailedLogins(user, identifier)
+        # checked before the password, otherwise guessing could go on until it hit the right one
+        if failures.blocked():
+            raise Throttled(detail=TOO_MANY_FAILURES)
         if user is None:
             # hash anyway so an unknown identifier takes as long as a wrong password
             make_password(password)
+            failures.add()
             raise AuthenticationFailed(INVALID_CREDENTIALS)
         if not user.check_password(password):
+            failures.add()
             raise AuthenticationFailed(INVALID_CREDENTIALS)
+        failures.clear()
         if not can_sign_in(user):
             raise PermissionDenied(INACTIVE_ACCOUNT)
 

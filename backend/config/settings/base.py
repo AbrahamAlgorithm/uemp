@@ -107,8 +107,9 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
         "core.permissions.IsActiveUser",
     ],
+    # per ip; failed attempts are also capped per account in accounts.services.FailedLogins
     "DEFAULT_THROTTLE_RATES": {
-        "login": "5/min",
+        "login": "30/min",
     },
     # trusted hops that append to X-Forwarded-For; next.js rewrites add none, so 0 locally
     "NUM_PROXIES": env.int("NUM_PROXIES", default=0),

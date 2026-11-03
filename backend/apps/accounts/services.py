@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db.models import Q
 
 from .models import User
@@ -36,3 +37,29 @@ def me_queryset():
         "student_profile__entry_session",
         "staff_profile",
     )
+
+
+class FailedLogins:
+    """Failed sign-ins for one account in a fixed one-minute window."""
+
+    limit = 5
+    window = 60
+
+    def __init__(self, user, identifier):
+        # one count per account however it's typed; unknown names count too so lockouts reveal nothing
+        subject = f"user:{user.pk}" if user is not None else f"id:{identifier.strip().lower()}"
+        self.key = f"failed-logins:{subject}"
+
+    def blocked(self):
+        return cache.get(self.key, 0) >= self.limit
+
+    def add(self):
+        if not cache.add(self.key, 1, self.window):
+            try:
+                cache.incr(self.key)
+            except ValueError:  # the window ran out between add() and incr()
+                cache.add(self.key, 1, self.window)
+
+    def clear(self):
+        cache.delete(self.key)
+

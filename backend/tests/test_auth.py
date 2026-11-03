@@ -158,8 +158,45 @@ def test_unsafe_requests_without_the_csrf_token_are_rejected(people, sign_in):
     assert client.post(reverse("auth-logout")).status_code == 403
 
 
-def test_login_is_limited_to_five_attempts_a_minute(people, sign_in):
+TOO_MANY = {"detail": "Too many failed attempts. Try again in a minute."}
+
+
+def test_five_failures_lock_the_account_even_for_the_right_password(people, sign_in):
     for _ in range(5):
         assert sign_in("student@uemp.test", "wrong-password").status_code == 401
+
+    response = sign_in("student@uemp.test")
+    assert response.status_code == 429
+    assert response.json() == TOO_MANY
+    assert sign_in("lecturer@uemp.test").status_code == 200
+
+
+def test_every_way_of_naming_an_account_shares_one_count(people, sign_in):
+    for identifier in ["student@uemp.test", "STUDENT@uemp.test", "CSC/2024/0001", "csc/2024/0001", "Csc/2024/0001"]:
+        assert sign_in(identifier, "wrong-password").status_code == 401
+
+    assert sign_in("student@uemp.test").status_code == 429
+
+
+def test_a_successful_sign_in_resets_the_count(people, sign_in):
+    for _ in range(4):
+        sign_in("student@uemp.test", "wrong-password")
+    assert sign_in("student@uemp.test").status_code == 200
+
+    for _ in range(4):
+        assert sign_in("student@uemp.test", "wrong-password").status_code == 401
+    assert sign_in("student@uemp.test").status_code == 200
+
+
+def test_unknown_identifiers_lock_the_same_way(people, sign_in):
+    for _ in range(5):
+        assert sign_in("nobody@uemp.test", "wrong-password").json() == INVALID
+
+    assert sign_in("nobody@uemp.test", "wrong-password").json() == TOO_MANY
+
+
+def test_one_ip_gets_thirty_attempts_a_minute(people, sign_in):
+    for n in range(30):
+        assert sign_in(f"nobody{n}@uemp.test", "wrong-password").status_code == 401
 
     assert sign_in("student@uemp.test").status_code == 429
