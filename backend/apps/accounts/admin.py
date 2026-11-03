@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import LecturerProfile, StudentProfile, User
+from .models import StaffProfile, StudentProfile, User
 
 
 @admin.register(User)
@@ -41,10 +41,10 @@ class StudentProfileAdmin(admin.ModelAdmin):
     autocomplete_fields = ("user", "program")
 
 
-@admin.register(LecturerProfile)
-class LecturerProfileAdmin(admin.ModelAdmin):
-    list_display = ("staff_id", "title", "user", "rank", "office")
+@admin.register(StaffProfile)
+class StaffProfileAdmin(admin.ModelAdmin):
+    list_display = ("staff_id", "title", "user", "phone")
     search_fields = ("staff_id", "user__email", "user__first_name", "user__last_name")
-    list_filter = ("rank", "title", "user__department")
+    list_filter = ("user__role", "title", "user__department")
     list_select_related = ("user",)
     autocomplete_fields = ("user",)

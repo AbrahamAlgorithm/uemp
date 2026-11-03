@@ -12,12 +12,13 @@ erDiagram
     DEPARTMENT |o--o{ USER : "belongs to"
     ACADEMIC_SESSION ||--o{ SEMESTER : "split into"
     USER ||--o| STUDENT_PROFILE : has
-    USER ||--o| LECTURER_PROFILE : has
+    USER ||--o| STAFF_PROFILE : has
     PROGRAM ||--o{ STUDENT_PROFILE : enrols
+    ACADEMIC_SESSION |o--o{ STUDENT_PROFILE : "entry session"
     PROGRAM }o--o{ COURSE : "offered to"
     COURSE ||--o{ COURSE_OFFERING : "runs as"
     SEMESTER ||--o{ COURSE_OFFERING : schedules
-    LECTURER_PROFILE |o--o{ COURSE_OFFERING : teaches
+    STAFF_PROFILE |o--o{ COURSE_OFFERING : teaches
     STUDENT_PROFILE ||--o{ COURSE_REGISTRATION : makes
     COURSE_OFFERING ||--o{ COURSE_REGISTRATION : takes
     COURSE_OFFERING ||--|| RESULT_SHEET : "graded on"
@@ -71,17 +72,15 @@ erDiagram
         smallint level "100 to 500"
         varchar gender "M or F"
         date date_of_birth
-        varchar entry_session
+        bigint entry_session_id FK "nullable"
         varchar phone
         varchar address
     }
-    LECTURER_PROFILE {
+    STAFF_PROFILE {
         bigint id PK
         bigint user_id FK, UK
         varchar staff_id UK
         varchar title
-        varchar rank
-        varchar office
         varchar phone
     }
     COURSE {
@@ -97,7 +96,7 @@ erDiagram
         bigint id PK
         bigint course_id FK
         bigint semester_id FK
-        bigint lecturer_id FK "nullable"
+        bigint lecturer_id FK "staff with role LECTURER"
     }
     COURSE_REGISTRATION {
         bigint id PK
@@ -155,13 +154,14 @@ erDiagram
 - `academics_academicsession`: an academic year such as `2026/2027`, with optional start and end dates; `name` is unique.
 - `academics_semester`: the FIRST or SECOND term of a session; `(session, term)` is unique, and a partial unique index on `is_current = true` allows only one current semester.
 - `accounts_user`: the sign-in account for every role; `email` is unique and `department` is null if and only if `role = SUPER_ADMIN`.
-- `accounts_studentprofile`: student details, one per user and deleted with it; `matric_no` is unique, `level` is one of 100, 200, 300, 400, 500, the department is read through `program`, and gender, date of birth and entry session are optional. `entry_session` is plain text because it usually predates the sessions held in the system.
-- `accounts_lecturerprofile`: lecturer details (title, rank, office, phone), one per user and deleted with it; `staff_id` is unique.
+- `accounts_studentprofile`: student details, one per user and deleted with it; `matric_no` is unique, `level` is one of 100, 200, 300, 400, 500, the department is read through `program`, and gender (M or F), date of birth and `entry_session` are optional. `entry_session` is a protected reference to the session the student started in.
+- `accounts_staffprofile`: staff details (staff ID, title, phone) for lecturers, department admins and super admins, one per user and deleted with it; `staff_id` is unique and is one of the identifiers accepted at sign-in.
 - `courses_course`: a catalogue course owned by a department; `code` is unique, `units` is 1 to 6, `level` is one of 100 to 500, and `semester_term` is FIRST or SECOND.
 - `courses_course_programs`: join table for the programmes a course is offered to.
-- `courses_courseoffering`: a course running in a given semester; `(course, semester)` is unique, `lecturer` is set to null if the lecturer profile is deleted, and saving a new offering creates its result sheet.
+- `courses_courseoffering`: a course running in a given semester; `(course, semester)` is unique, `lecturer` must be a staff profile whose user is a LECTURER (checked in `clean()` and `courses.services.assign_lecturer`, not by the database) and is set to null if the profile is deleted, and saving a new offering creates its result sheet.
 - `registrations_courseregistration`: a student registered on an offering; `(student, offering)` is unique. The 24-unit cap (`MAX_UNITS_PER_SEMESTER`) is checked in application code, not by the database.
 - `results_gradescale`: maps a score band to a grade and grade point; `0 <= min_score <= max_score <= 100`.
 - `results_resultsheet`: one per offering, created as DRAFT when the offering is created; `status` is indexed, and the submitter and reviewer are nullable references to users that can't be deleted while referenced.
 - `results_resultentry`: a student's score for one registration, at most one per registration. `ca_score` (0 to 40) and `exam_score` (0 to 60) are each nullable, so a lecturer can save CA only, exam only, both or neither. `total`, `grade` and `grade_point` stay null until the sheet is submitted, when blank scores count as 0.
 - `audit_auditlog`: an append-only record of who changed what, with display text in `target` and `details` and an optional `department` for department-level activity feeds; indexed on `(entity_type, entity_id)` and on `created_at`. `actor` and `department` are set to null when their row is deleted, while `actor_email` keeps the name, and it is read-only in the admin.
+- `token_blacklist_outstandingtoken` and `token_blacklist_blacklistedtoken`: SimpleJWT's record of issued refresh tokens and the ones revoked by rotation or sign-out.

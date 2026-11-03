@@ -1,11 +1,13 @@
 from decimal import Decimal
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
-from apps.accounts.models import StudentProfile, User
+from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
+from apps.courses.services import assign_lecturer
 from apps.registrations.models import CourseRegistration
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
 
@@ -112,3 +114,27 @@ def test_entry_saves_with_any_mix_of_scores(registration, ca, exam):
 def test_grade_band_min_cannot_exceed_max():
     with pytest.raises(IntegrityError):
         GradeScale.objects.create(min_score=70, max_score=60, grade="A", point=Decimal("5"))
+
+
+def test_staff_profile_has_no_rank_or_office():
+    fields = {field.name for field in StaffProfile._meta.get_fields()}
+
+    assert {"user", "staff_id", "title", "phone"} <= fields
+    assert not fields & {"rank", "office"}
+
+
+def test_only_lecturers_can_be_assigned_to_teach(offering, department):
+    admin = User.objects.create_user(email="admin@example.com", role=User.Role.DEPT_ADMIN, department=department)
+    admin_staff = StaffProfile.objects.create(user=admin, staff_id="CVU/CSC/017")
+    lecturer = User.objects.create_user(email="lecturer@example.com", role=User.Role.LECTURER, department=department)
+    lecturer_staff = StaffProfile.objects.create(user=lecturer, staff_id="CVU/CSC/073")
+
+    offering.lecturer = admin_staff
+    with pytest.raises(ValidationError):
+        offering.full_clean()
+    with pytest.raises(ValidationError):
+        assign_lecturer(offering, admin_staff)
+
+    assign_lecturer(offering, lecturer_staff)
+    offering.refresh_from_db()
+    assert offering.lecturer == lecturer_staff

@@ -11,7 +11,7 @@ from django.db import transaction
 from django.db.models import ProtectedError, Q
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
-from apps.accounts.models import LecturerProfile, StudentProfile, User
+from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import CourseRegistration
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
@@ -52,25 +52,31 @@ PROGRAMS = [
 PAST_SESSION = "2025/2026"
 CURRENT_SESSION = "2026/2027"
 
+# the older sessions only exist as entry sessions, so they have no semesters
 SESSIONS = [
+    ("2022/2023", date(2022, 10, 3), date(2023, 8, 25)),
+    ("2023/2024", date(2023, 10, 2), date(2024, 8, 30)),
+    ("2024/2025", date(2024, 10, 7), date(2025, 8, 29)),
     (PAST_SESSION, date(2025, 10, 6), date(2026, 8, 28)),
     (CURRENT_SESSION, date(2026, 10, 5), date(2027, 8, 27)),
 ]
 
+SUPER_ADMIN = ("superadmin", "CVU/REG/010", "Mr.", "Tunde", "Bakare")
+
 DEPT_ADMINS = [
-    ("CSC", "Bisi", "Adewale"),
-    ("MTH", "Kunle", "Ojo"),
-    ("EEE", "Grace", "Effiong"),
+    ("admin.csc", "CVU/CSC/017", "Mrs.", "Bisi", "Adewale"),
+    ("admin.mth", "CVU/MTH/012", "Mr.", "Kunle", "Ojo"),
+    ("admin.eee", "CVU/EEE/015", "Mrs.", "Grace", "Effiong"),
 ]
 
 LECTURERS = [
-    ("lecturer1.csc", "CVU/CSC/073", "Dr.", "Adebayo", "Ogunleye", "Senior Lecturer", "CSC Block A, Room 21"),
-    ("lecturer2.csc", "CVU/CSC/041", "Prof.", "Ngozi", "Eze", "Professor", "CSC Block A, Room 2"),
-    ("lecturer3.csc", "CVU/CSC/088", "Dr.", "Ibrahim", "Musa", "Lecturer I", "CSC Block A, Room 18"),
-    ("lecturer1.mth", "CVU/MTH/052", "Dr.", "Aisha", "Bello", "Senior Lecturer", "Science Complex, Room 205"),
-    ("lecturer2.mth", "CVU/MTH/029", "Prof.", "Olumide", "Akinola", "Professor", "Science Complex, Room 201"),
-    ("lecturer1.eee", "CVU/EEE/064", "Engr.", "Chukwudi", "Obi", "Lecturer I", "Engineering Block A, Room 14"),
-    ("lecturer2.eee", "CVU/EEE/037", "Dr.", "Halima", "Yusuf", "Senior Lecturer", "Engineering Block A, Room 3"),
+    ("lecturer1.csc", "CVU/CSC/073", "Dr.", "Adebayo", "Ogunleye"),
+    ("lecturer2.csc", "CVU/CSC/041", "Prof.", "Ngozi", "Eze"),
+    ("lecturer3.csc", "CVU/CSC/088", "Dr.", "Ibrahim", "Musa"),
+    ("lecturer1.mth", "CVU/MTH/052", "Dr.", "Aisha", "Bello"),
+    ("lecturer2.mth", "CVU/MTH/029", "Prof.", "Olumide", "Akinola"),
+    ("lecturer1.eee", "CVU/EEE/064", "Engr.", "Chukwudi", "Obi"),
+    ("lecturer2.eee", "CVU/EEE/037", "Dr.", "Halima", "Yusuf"),
 ]
 
 STUDENTS = [
@@ -241,7 +247,7 @@ class Command(BaseCommand):
             )
 
     def seed_calendar(self):
-        sessions = {}
+        self.sessions = sessions = {}
         for name, start, end in SESSIONS:
             sessions[name], _ = AcademicSession.objects.update_or_create(
                 name=name,
@@ -258,7 +264,7 @@ class Command(BaseCommand):
             session=sessions[CURRENT_SESSION], term=FIRST, defaults={"is_current": True}
         )
 
-    def make_user(self, handle, first_name, last_name, role, department=None, admin=False):
+    def make_user(self, handle, identifier, first_name, last_name, role, department=None, admin=False):
         user, _ = User.objects.update_or_create(
             email=f"{handle}@{DOMAIN}",
             defaults={
@@ -272,32 +278,29 @@ class Command(BaseCommand):
                 "password": self.password,
             },
         )
-        self.logins.append(user)
+        self.logins.append((user, identifier))
         return user
 
+    def make_staff(self, row, role):
+        handle, staff_id, title, first_name, last_name = row
+        code = staff_id.split("/")[1]
+        department = self.departments.get(code)
+        user = self.make_user(
+            handle, staff_id, first_name, last_name, role, department, admin=role == User.Role.SUPER_ADMIN
+        )
+        profile, _ = StaffProfile.objects.update_or_create(
+            user=user,
+            defaults={"staff_id": staff_id, "title": title, "phone": f"0803 450 {len(self.logins):04d}"},
+        )
+        return profile
+
     def seed_staff(self):
-        self.make_user("superadmin", "Tunde", "Bakare", User.Role.SUPER_ADMIN, admin=True)
-
+        self.make_staff(SUPER_ADMIN, User.Role.SUPER_ADMIN)
         self.dept_admins = {}
-        for code, first_name, last_name in DEPT_ADMINS:
-            self.dept_admins[code] = self.make_user(
-                f"admin.{code.lower()}", first_name, last_name, User.Role.DEPT_ADMIN, self.departments[code]
-            )
-
-        self.lecturers = {}
-        for n, (handle, staff_id, title, first_name, last_name, rank, office) in enumerate(LECTURERS, start=1):
-            department = self.departments[staff_id.split("/")[1]]
-            user = self.make_user(handle, first_name, last_name, User.Role.LECTURER, department)
-            self.lecturers[handle], _ = LecturerProfile.objects.update_or_create(
-                user=user,
-                defaults={
-                    "staff_id": staff_id,
-                    "title": title,
-                    "rank": rank,
-                    "office": office,
-                    "phone": f"0803 450 {n:04d}",
-                },
-            )
+        for row in DEPT_ADMINS:
+            profile = self.make_staff(row, User.Role.DEPT_ADMIN)
+            self.dept_admins[profile.user.department.code] = profile.user
+        self.lecturers = {row[0]: self.make_staff(row, User.Role.LECTURER) for row in LECTURERS}
 
     def seed_students(self):
         current_year = int(CURRENT_SESSION[:4])
@@ -306,16 +309,19 @@ class Command(BaseCommand):
         for n, (program_key, level, first_name, last_name, gender, born, ability) in enumerate(STUDENTS, start=1):
             program = self.programs[program_key]
             entry_year = current_year - level // 100 + 1
-            user = self.make_user(f"student{n}", first_name, last_name, User.Role.STUDENT, program.department)
+            matric_no = f"{program.department.code}/{entry_year}/{n:04d}"
+            user = self.make_user(
+                f"student{n}", matric_no, first_name, last_name, User.Role.STUDENT, program.department
+            )
             student, _ = StudentProfile.objects.update_or_create(
                 user=user,
                 defaults={
-                    "matric_no": f"{program.department.code}/{entry_year}/{n:04d}",
+                    "matric_no": matric_no,
                     "program": program,
                     "level": level,
                     "gender": gender,
                     "date_of_birth": date.fromisoformat(born),
-                    "entry_session": f"{entry_year}/{entry_year + 1}",
+                    "entry_session": self.sessions[f"{entry_year}/{entry_year + 1}"],
                     "phone": f"0806 120 {n:04d}",
                     "address": ADDRESSES[n % len(ADDRESSES)],
                 },
@@ -412,13 +418,13 @@ class Command(BaseCommand):
 
     def print_logins(self):
         rows = [
-            (user.get_role_display(), user.email, user.department.code if user.department else "-")
-            for user in self.logins
+            (user.get_role_display(), user.email, identifier, user.department.code if user.department else "-")
+            for user, identifier in self.logins
         ]
-        width = max(len(email) for _, email, _ in rows)
-        self.stdout.write(f"{'Role':<17}{'Email':<{width + 2}}Department")
-        for role, email, department in rows:
-            self.stdout.write(f"{role:<17}{email:<{width + 2}}{department}")
+        width = max(len(email) for _, email, _, _ in rows)
+        self.stdout.write(f"{'Role':<17}{'Email':<{width + 2}}{'ID':<15}Department")
+        for role, email, identifier, department in rows:
+            self.stdout.write(f"{role:<17}{email:<{width + 2}}{identifier:<15}{department}")
         self.stdout.write(
             self.style.SUCCESS(
                 f"{len(rows)} demo accounts ready. Password: SEED_PASSWORD, or {DEFAULT_PASSWORD} when it is unset."

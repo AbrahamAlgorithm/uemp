@@ -1,7 +1,9 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
 from apps.academics.models import Level, Semester
+from apps.accounts.models import User
 from core.models import TimeStampedModel
 
 
@@ -24,11 +26,17 @@ class Course(TimeStampedModel):
         return f"{self.code} {self.title}"
 
 
+def validate_lecturer(staff):
+    if staff is not None and staff.user.role != User.Role.LECTURER:
+        raise ValidationError({"lecturer": "Only lecturers can be assigned to teach a course."})
+
+
 class CourseOffering(TimeStampedModel):
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="offerings")
     semester = models.ForeignKey("academics.Semester", on_delete=models.PROTECT, related_name="offerings")
+    # staff profiles also belong to admins, so the role is checked in validate_lecturer
     lecturer = models.ForeignKey(
-        "accounts.LecturerProfile",
+        "accounts.StaffProfile",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -42,3 +50,6 @@ class CourseOffering(TimeStampedModel):
 
     def __str__(self):
         return f"{self.course.code} ({self.semester})"
+
+    def clean(self):
+        validate_lecturer(self.lecturer)

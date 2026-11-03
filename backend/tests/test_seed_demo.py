@@ -4,7 +4,7 @@ import pytest
 from django.core.management import call_command
 
 from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
-from apps.accounts.models import LecturerProfile, StudentProfile, User
+from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import CourseRegistration
 from apps.results.models import GradeScale, ResultEntry, ResultSheet
@@ -19,7 +19,7 @@ SEEDED_MODELS = [
     Semester,
     User,
     StudentProfile,
-    LecturerProfile,
+    StaffProfile,
     Course,
     CourseOffering,
     CourseRegistration,
@@ -77,3 +77,22 @@ def test_accounts_use_the_seed_password(monkeypatch):
 
     assert User.objects.get(email="superadmin@uemp.test").check_password("Another@2026")
     assert "student1@uemp.test" in output
+
+
+def test_every_staff_account_has_a_staff_profile():
+    seed()
+
+    staff = User.objects.filter(
+        email__endswith="@uemp.test",
+        role__in=[User.Role.LECTURER, User.Role.DEPT_ADMIN, User.Role.SUPER_ADMIN],
+    )
+    assert set(staff.values_list("role", flat=True)) == {"LECTURER", "DEPT_ADMIN", "SUPER_ADMIN"}
+    assert StaffProfile.objects.filter(user__in=staff).count() == staff.count() == 11
+
+
+def test_students_entry_session_matches_their_matric_year():
+    seed()
+
+    students = StudentProfile.objects.select_related("entry_session")
+    assert students.exists()
+    assert all(student.entry_session.name[:4] == student.matric_no.split("/")[1] for student in students)
