@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from apps.accounts.models import User
 from apps.audit import services as audit
 from apps.audit.services import snapshot
+from apps.registrations.views import int_param
 from apps.results.models import ResultSheet
 from core.viewsets import ScopedViewSet
 
@@ -37,11 +38,23 @@ class CourseViewSet(ScopedViewSet):
 
 
 class OfferingViewSet(ScopedViewSet):
-    queryset = CourseOffering.objects.select_related("course__department", "semester", "lecturer__user", "result_sheet").all()
+    queryset = CourseOffering.objects.select_related("course__department", "semester", "lecturer__user", "result_sheet").order_by("-semester__session__name", "-semester__term", "course__code")
     serializer_class = OfferingSerializer
     department_lookup = "course__department"
     search_fields = ("course__code", "course__title")
-    filter_fields = ("semester", "course", "lecturer")
+    filter_fields = ("course", "lecturer")
+
+    def filter_queryset(self, queryset):
+        params = self.request.query_params
+        if params.get("semester") == "current":
+            queryset = queryset.filter(semester__is_current=True)
+        else:
+            semester = int_param(self.request, "semester")
+            if semester is not None:
+                queryset = queryset.filter(semester=semester)
+        if params.get("unallocated") == "true":
+            queryset = queryset.filter(lecturer__isnull=True)
+        return super().filter_queryset(queryset)
 
     def _validate_lecturer(self, course, lecturer):
         if lecturer and (lecturer.user.role != User.Role.LECTURER or lecturer.user.department_id != course.department_id):

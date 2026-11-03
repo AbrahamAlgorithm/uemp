@@ -1,12 +1,9 @@
-from collections import defaultdict
-
 from django.db.models import Case, IntegerField, Value, When
 from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.negotiation import DefaultContentNegotiation
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -14,13 +11,15 @@ from rest_framework.views import APIView
 
 from apps.courses.models import CourseOffering
 from apps.registrations.views import int_param, semester_in_progress, student_of
+from core.negotiation import FormatIsFileType
 from core.permissions import MANAGERS, HasRole, IsDeptAdmin, IsLecturer, IsStudent, IsSuperAdmin
 from core.scoping import DepartmentScopedQuerysetMixin
 from core.viewsets import PagePagination
 
 from . import imports, services
-from .grading import FAIL, active_bands, approved_entries, cgpa, gpa, is_default, summarise
+from .grading import FAIL, active_bands, is_default, summarise
 from .models import ResultSheet
+from .records import Transcript
 from .serializers import (
     GradeScaleSerializer,
     ImportReportSerializer,
@@ -87,12 +86,6 @@ class GradeScaleResetView(APIView):
         return Response(scale_data())
 
 
-class FormatIsFileType(DefaultContentNegotiation):
-    # drf would read ?format= as a renderer name; on the template it picks the file type instead
-    def select_renderer(self, request, renderers, format_suffix=None):
-        return renderers[0], renderers[0].media_type
-
-
 def sheet_detail(sheet):
     services.ensure_entries(sheet)
     entries = list(services.class_list(sheet))
@@ -146,6 +139,7 @@ class LecturerOfferingViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                 "semester": offering.semester,
                 "sheet_id": offering.result_sheet.pk,
                 "sheet_status": offering.result_sheet.status,
+                "feedback": offering.result_sheet.feedback,
                 "student_count": services.student_count(offering.result_sheet, counts),
                 "scored_count": counts.get(offering.pk, {}).get("scored", 0),
             }
@@ -330,51 +324,13 @@ class ResultSheetViewSet(DepartmentScopedQuerysetMixin, viewsets.ReadOnlyModelVi
 
 
 def student_results(student):
-    entries = (
-        approved_entries()
-        .filter(registration__student=student)
-        .select_related("registration__offering__course", "registration__offering__semester__session")
-        .order_by(
-            "registration__offering__semester__session__name",
-            "registration__offering__semester__term",
-            "registration__offering__course__code",
-        )
-    )
-    semesters, courses = {}, defaultdict(list)
-    last_grade = {}
-    for entry in entries:
-        offering = entry.registration.offering
-        course = offering.course
-        semesters.setdefault(offering.semester_id, offering.semester)
-        courses[offering.semester_id].append(
-            {
-                "registration_id": entry.registration_id,
-                "code": course.code,
-                "title": course.title,
-                "units": course.units,
-                "ca_score": entry.ca_score,
-                "exam_score": entry.exam_score,
-                "total": entry.total,
-                "grade": entry.grade,
-                "grade_point": entry.grade_point,
-                "is_carry_over": last_grade.get(course.pk) == FAIL,
-            }
-        )
-        last_grade[course.pk] = entry.grade
-
-    lines = [line for semester_lines in courses.values() for line in semester_lines]
+    transcript = Transcript(student)
+    semesters = transcript.semesters()
+    lines = [course for semester in semesters for course in semester["courses"]]
     return {
         "student": student,
-        "semesters": [
-            {
-                "semester": semester,
-                "courses": courses[semester_id],
-                "units": sum(line["units"] for line in courses[semester_id]),
-                "gpa": gpa(student, semester),
-            }
-            for semester_id, semester in semesters.items()
-        ],
-        "cgpa": cgpa(student),
+        "semesters": semesters,
+        "cgpa": transcript.cgpa,
         "units_attempted": sum(line["units"] for line in lines),
         "units_passed": sum(line["units"] for line in lines if line["grade"] != FAIL),
     }

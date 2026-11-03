@@ -1,12 +1,15 @@
 from django.db import transaction
 from django.http import Http404
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.audit import services as audit
 from apps.audit.services import snapshot
+from core.permissions import MANAGERS, HasRole
 from core.viewsets import ScopedViewSet, SuperAdminViewSet, apply_query_filters
 
 from .models import AcademicSession, Department, Faculty, Program, Semester
@@ -32,6 +35,28 @@ class DepartmentViewSet(SuperAdminViewSet):
     def filter_queryset(self, queryset):
         return apply_query_filters(queryset, self.request, self.search_fields, ("faculty",))
 
+    @extend_schema(summary="The department's administrators, including inactive ones", responses={200: None})
+    @action(detail=True, methods=["get"])
+    def admins(self, request, pk=None):
+        department = self.get_object()
+        admins = (
+            User.objects.filter(role=User.Role.DEPT_ADMIN, department=department)
+            .select_related("staff_profile")
+            .order_by("last_name", "first_name")
+        )
+        return Response(
+            [
+                {
+                    "id": user.pk,
+                    "name": user.get_full_name() or user.email,
+                    "email": user.email,
+                    "status": user.status,
+                    "staff_id": user.staff_profile.staff_id if hasattr(user, "staff_profile") else None,
+                }
+                for user in admins
+            ]
+        )
+
 
 class SessionViewSet(SuperAdminViewSet):
     queryset = AcademicSession.objects.all().order_by("-name")
@@ -43,6 +68,12 @@ class SessionViewSet(SuperAdminViewSet):
 
 
 class SemesterViewSet(SuperAdminViewSet):
+    def get_permissions(self):
+        # report filters need the semester list; changing the calendar stays with the super admin
+        if self.action in ("list", "retrieve"):
+            return [HasRole(*MANAGERS)()]
+        return super().get_permissions()
+
     queryset = Semester.objects.select_related("session").all().order_by("-session__name", "term")
     serializer_class = SemesterSerializer
     search_fields = ("session__name", "term")

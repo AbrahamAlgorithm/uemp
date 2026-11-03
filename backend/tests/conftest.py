@@ -9,6 +9,8 @@ from apps.academics.models import AcademicSession, Department, Faculty, Program,
 from apps.accounts.models import StaffProfile, StudentProfile, User
 from apps.courses.models import Course, CourseOffering
 from apps.registrations.models import CourseRegistration, SemesterRegistration
+from apps.results.grading import grade_for
+from apps.results.models import ResultEntry, ResultSheet
 
 PASSWORD = "Demo@2026"
 WHEN = datetime(2026, 10, 14, tzinfo=timezone.utc)
@@ -134,6 +136,18 @@ def enrol(student, offering, status=SemesterRegistration.Status.VALIDATED):
         student=student, semester=offering.semester, defaults={"status": status, "submitted_at": WHEN}
     )
     return CourseRegistration.objects.create(student=student, offering=offering, semester_registration=form)
+
+
+def grade(registration, ca, exam):
+    total = ca + exam
+    band = grade_for(total)
+    return ResultEntry.objects.create(
+        registration=registration, ca_score=ca, exam_score=exam, total=total, grade=band.grade, grade_point=band.point
+    )
+
+
+def set_sheet(offering, status):
+    ResultSheet.objects.filter(offering=offering).update(status=status)
 
 
 @pytest.fixture

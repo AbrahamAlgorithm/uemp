@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 
-from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum
 
 from apps.registrations.models import SemesterRegistration
 from core.exceptions import Conflict
@@ -9,6 +9,7 @@ from .models import GradeScale, ResultEntry, ResultSheet
 
 FAIL = "F"
 TWO_PLACES = Decimal("0.01")
+AT_RISK_CGPA = Decimal("1.50")
 
 # the nigerian 5-point scale as (lowest mark, highest mark, grade, point)
 NATIONAL_GRADE_SCALE = [
@@ -75,6 +76,37 @@ def point_average(entries):
     if not totals["units"]:
         return None
     return (totals["points"] / totals["units"]).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+
+
+def weighted_average(lines):
+    """point_average for (units, grade_point) pairs already in memory."""
+    units = sum(line_units for line_units, _ in lines)
+    if not units:
+        return None
+    points = sum(line_units * point for line_units, point in lines)
+    return (Decimal(points) / units).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+
+
+def average_by(entries, key):
+    """CGPA, units and failed-course count per value of key, for entries from approved_entries()."""
+    units = F("registration__offering__course__units")
+    rows = (
+        entries.order_by()
+        .values(key)
+        .annotate(
+            points=Sum(ExpressionWrapper(units * F("grade_point"), output_field=DecimalField(max_digits=8, decimal_places=2))),
+            units=Sum(units),
+            failed=Count("pk", filter=Q(grade=FAIL)),
+        )
+    )
+    return {
+        row[key]: {
+            "cgpa": (row["points"] / row["units"]).quantize(TWO_PLACES, rounding=ROUND_HALF_UP) if row["units"] else None,
+            "units": row["units"],
+            "failed": row["failed"],
+        }
+        for row in rows
+    }
 
 
 def gpa(student, semester):

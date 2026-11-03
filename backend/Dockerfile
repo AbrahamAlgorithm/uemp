@@ -7,16 +7,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DJANGO_SETTINGS_MODULE=config.settings.prod \
     PORT=8080
 
-# weasyprint runtime libs
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libpango-1.0-0 \
-        libpangoft2-1.0-0 \
-        libharfbuzz0b \
-        libffi-dev \
-        shared-mime-info \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 COPY requirements.txt .

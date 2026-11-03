@@ -2,10 +2,11 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.db.models import Count, Prefetch
 from django.http import Http404
 from django.middleware.csrf import get_token
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Throttled, ValidationError
@@ -17,9 +18,12 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.academics.models import Department
+from apps.academics.models import Department, Semester
 from apps.audit import services as audit
 from apps.audit.services import snapshot
+from apps.courses.models import CourseOffering
+from apps.results.records import Transcript, default_entry_session, semester_records
+from apps.results.serializers import SemesterRecordSerializer
 from core.permissions import INACTIVE_ACCOUNT, MANAGERS, HasRole
 from core.scoping import department_scope
 from core.viewsets import ScopedViewSet, SuperAdminViewSet, apply_query_filters
@@ -40,6 +44,15 @@ from .services import FailedLogins, can_sign_in, find_user, identifier_of, me_qu
 INVALID_CREDENTIALS = "Invalid credentials."
 TOO_MANY_FAILURES = "Too many failed attempts. Try again in a minute."
 SESSION_ENDED = "Your session has ended. Sign in again."
+
+
+def department_param(request):
+    value = request.query_params.get("department")
+    if not value:
+        return None
+    if not value.isdigit():
+        raise ValidationError({"department": "Must be a whole number."})
+    return int(value)
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -171,7 +184,54 @@ class StudentViewSet(ScopedViewSet):
     serializer_class = StudentSerializer
     department_lookup = "program__department"
     search_fields = ("matric_no", "user__email", "user__first_name", "user__last_name")
-    filter_fields = ("program", "level")
+    filter_fields = ("program", "level", "entry_session")
+
+    def filter_queryset(self, queryset):
+        department = department_param(self.request)
+        if department is not None:
+            queryset = queryset.filter(program__department=department)
+        return super().filter_queryset(queryset)
+
+    @extend_schema(
+        summary="Students per level with the entry sessions they came in with",
+        parameters=[OpenApiParameter("department", int)],
+        responses={200: None},
+    )
+    @action(detail=False, methods=["get"])
+    def levels(self, request):
+        queryset = self.get_queryset()
+        department = department_param(request)
+        if department is not None:
+            queryset = queryset.filter(program__department=department)
+        rows = queryset.order_by("level", "entry_session__name").values("level", "entry_session_id", "entry_session__name").annotate(
+            students=Count("pk")
+        )
+        levels = {}
+        for row in rows:
+            level = levels.setdefault(row["level"], {"level": row["level"], "student_count": 0, "entry_sessions": []})
+            level["student_count"] += row["students"]
+            if row["entry_session_id"]:
+                level["entry_sessions"].append(
+                    {"id": row["entry_session_id"], "name": row["entry_session__name"], "student_count": row["students"]}
+                )
+        return Response(list(levels.values()))
+
+    @extend_schema(summary="A student's profile, registrations, approved results, CGPA and carry-overs", responses={200: None})
+    @action(detail=True, methods=["get"])
+    def record(self, request, pk=None):
+        student = self.get_object()
+        transcript = Transcript(student)
+        semesters = Semester.objects.filter(registration_forms__student=student).select_related("session").order_by(
+            "session__name", "term"
+        )
+        return Response(
+            {
+                "student": StudentSerializer(student).data,
+                "cgpa": transcript.cgpa,
+                "carry_overs": transcript.outstanding_carry_overs(),
+                "semesters": SemesterRecordSerializer(semester_records(student, list(semesters), transcript), many=True).data,
+            }
+        )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -192,7 +252,9 @@ class StudentViewSet(ScopedViewSet):
                 first_name=user_data.get("first_name", ""),
                 last_name=user_data.get("last_name", ""),
             )
-            student = StudentProfile.objects.create(user=user, **serializer.validated_data)
+            data = serializer.validated_data
+            data.setdefault("entry_session", default_entry_session(data["level"]))
+            student = StudentProfile.objects.create(user=user, **data)
             audit.record(request.user, "CREATE", student, after=snapshot(student), request=request)
         return Response(self.get_serializer(student).data, status=status.HTTP_201_CREATED)
 
@@ -218,10 +280,19 @@ class StaffViewSet(ScopedViewSet):
     search_fields = ("staff_id", "user__email", "user__first_name", "user__last_name")
     filter_fields = ("user__role",)
 
+    def get_queryset(self):
+        current = CourseOffering.objects.filter(semester__is_current=True).select_related("course")
+        return super().get_queryset().prefetch_related(
+            Prefetch("offerings", queryset=current, to_attr="current_offering_rows")
+        )
+
     def filter_queryset(self, queryset):
         role = self.request.query_params.get("role")
         if role:
             queryset = queryset.filter(user__role=role)
+        department = department_param(self.request)
+        if department is not None:
+            queryset = queryset.filter(user__department=department)
         return apply_query_filters(queryset, self.request, self.search_fields, self.filter_fields)
 
     def create(self, request, *args, **kwargs):

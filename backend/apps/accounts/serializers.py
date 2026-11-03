@@ -141,13 +141,14 @@ class StudentSerializer(serializers.ModelSerializer):
     department = serializers.SerializerMethodField()
     faculty = serializers.SerializerMethodField()
     program_detail = serializers.SerializerMethodField(source="program", read_only=True)
+    entry_session_detail = serializers.SerializerMethodField()
     initial_password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = StudentProfile
         fields = [
             "id", "email", "first_name", "last_name", "matric_no", "level", "gender",
-            "date_of_birth", "entry_session", "phone", "address", "status", "program",
+            "date_of_birth", "entry_session", "entry_session_detail", "phone", "address", "status", "program",
             "program_detail", "department", "faculty", "initial_password",
         ]
 
@@ -162,6 +163,9 @@ class StudentSerializer(serializers.ModelSerializer):
     def get_program_detail(self, obj):
         return {"id": obj.program_id, "name": obj.program.name, "award": obj.program.award}
 
+    def get_entry_session_detail(self, obj):
+        return {"id": obj.entry_session_id, "name": obj.entry_session.name} if obj.entry_session_id else None
+
     def validate_initial_password(self, value):
         validate_password(value)
         return value
@@ -175,14 +179,32 @@ class StaffSerializer(serializers.ModelSerializer):
     status = serializers.CharField(source="user.status", read_only=True)
     department = serializers.SerializerMethodField()
     faculty = serializers.SerializerMethodField()
+    user_id = serializers.IntegerField(read_only=True)
+    current_offerings = serializers.SerializerMethodField()
+    total_units = serializers.SerializerMethodField()
     initial_password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = StaffProfile
         fields = [
-            "id", "email", "first_name", "last_name", "staff_id", "title", "phone",
-            "role", "status", "department", "faculty", "initial_password",
+            "id", "user_id", "email", "first_name", "last_name", "staff_id", "title", "phone",
+            "role", "status", "department", "faculty", "current_offerings", "total_units", "initial_password",
         ]
+
+    def _offerings(self, obj):
+        # the list view prefetches these; a create or update response reads them on demand
+        if not hasattr(obj, "current_offering_rows"):
+            obj.current_offering_rows = list(obj.offerings.filter(semester__is_current=True).select_related("course"))
+        return obj.current_offering_rows
+
+    def get_current_offerings(self, obj) -> list[dict]:
+        return [
+            {"id": offering.pk, "code": offering.course.code, "title": offering.course.title, "units": offering.course.units}
+            for offering in sorted(self._offerings(obj), key=lambda offering: offering.course.code)
+        ]
+
+    def get_total_units(self, obj) -> int:
+        return sum(offering.course.units for offering in self._offerings(obj))
 
     def get_department(self, obj):
         d = obj.user.department

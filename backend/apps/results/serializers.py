@@ -283,6 +283,7 @@ class LecturerOfferingSerializer(serializers.Serializer):
     semester = SemesterBriefSerializer()
     sheet_id = serializers.IntegerField()
     sheet_status = serializers.ChoiceField(choices=ResultSheet.Status.choices)
+    feedback = serializers.CharField(allow_blank=True)
     student_count = serializers.IntegerField()
     scored_count = serializers.IntegerField()
 
@@ -313,3 +314,32 @@ class StudentResultsSerializer(serializers.Serializer):
     cgpa = serializers.DecimalField(max_digits=3, decimal_places=2, allow_null=True)
     units_attempted = serializers.IntegerField()
     units_passed = serializers.IntegerField()
+
+
+class RegistrationStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=["NOT_SUBMITTED", "SUBMITTED", "VALIDATED", "RETURNED"])
+    return_reason = serializers.CharField(allow_blank=True)
+    submitted_at = serializers.DateTimeField(allow_null=True)
+    validated_at = serializers.DateTimeField(allow_null=True)
+
+
+class RegisteredCourseSerializer(serializers.Serializer):
+    offering_id = serializers.IntegerField()
+    code = serializers.CharField()
+    title = serializers.CharField()
+    units = serializers.IntegerField()
+    lecturer = serializers.CharField(allow_null=True)
+    is_carry_over = serializers.BooleanField()
+    ca_score = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    exam_score = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    total = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
+    grade = serializers.CharField(allow_null=True)
+    grade_point = serializers.DecimalField(max_digits=3, decimal_places=2, allow_null=True)
+
+
+class SemesterRecordSerializer(serializers.Serializer):
+    semester = SemesterBriefSerializer()
+    registration = RegistrationStatusSerializer()
+    courses = RegisteredCourseSerializer(many=True)
+    total_units = serializers.IntegerField()
+    gpa = serializers.DecimalField(max_digits=3, decimal_places=2, allow_null=True)
