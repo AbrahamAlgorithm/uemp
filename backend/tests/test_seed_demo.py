@@ -1,0 +1,79 @@
+from io import StringIO
+
+import pytest
+from django.core.management import call_command
+
+from apps.academics.models import AcademicSession, Department, Faculty, Program, Semester
+from apps.accounts.models import LecturerProfile, StudentProfile, User
+from apps.courses.models import Course, CourseOffering
+from apps.registrations.models import CourseRegistration
+from apps.results.models import GradeScale, ResultEntry, ResultSheet
+
+pytestmark = pytest.mark.django_db
+
+SEEDED_MODELS = [
+    Faculty,
+    Department,
+    Program,
+    AcademicSession,
+    Semester,
+    User,
+    StudentProfile,
+    LecturerProfile,
+    Course,
+    CourseOffering,
+    CourseRegistration,
+    GradeScale,
+    ResultSheet,
+    ResultEntry,
+]
+
+
+def seed(*args):
+    out = StringIO()
+    call_command("seed_demo", *args, stdout=out)
+    return out.getvalue()
+
+
+def row_counts():
+    return {model.__name__: model.objects.count() for model in SEEDED_MODELS}
+
+
+def test_running_twice_creates_no_duplicates():
+    seed()
+    first = row_counts()
+
+    seed()
+
+    assert row_counts() == first
+    assert all(first.values())
+
+
+def test_reset_rebuilds_the_same_data():
+    seed()
+    first = row_counts()
+
+    seed("--reset")
+
+    assert row_counts() == first
+
+
+def test_current_semester_has_a_sheet_in_every_state_and_past_is_approved():
+    seed()
+
+    current = Semester.objects.get(is_current=True)
+    current_states = ResultSheet.objects.filter(offering__semester=current).values_list("status", flat=True)
+    past = ResultSheet.objects.exclude(offering__semester=current)
+
+    assert set(current_states) == set(ResultSheet.Status.values)
+    assert past.exists()
+    assert not past.exclude(status=ResultSheet.Status.APPROVED).exists()
+
+
+def test_accounts_use_the_seed_password(monkeypatch):
+    monkeypatch.setenv("SEED_PASSWORD", "Another@2026")
+
+    output = seed()
+
+    assert User.objects.get(email="superadmin@uemp.test").check_password("Another@2026")
+    assert "student1@uemp.test" in output

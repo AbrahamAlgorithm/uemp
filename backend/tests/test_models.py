@@ -48,6 +48,11 @@ def student(department, program):
     return StudentProfile.objects.create(user=user, matric_no="CSC/2024/0001", program=program, level=300)
 
 
+@pytest.fixture
+def registration(student, offering):
+    return CourseRegistration.objects.create(student=student, offering=offering)
+
+
 def test_new_offering_gets_a_draft_result_sheet(offering):
     assert offering.result_sheet.status == ResultSheet.Status.DRAFT
 
@@ -85,18 +90,23 @@ def test_student_level_must_be_a_whole_level(student):
         student.save()
 
 
-@pytest.mark.parametrize(("ca", "exam"), [("30.50", "60"), ("20", "70.25"), ("-1", "50")])
-def test_scores_outside_ca_and_exam_limits_are_rejected(student, offering, ca, exam):
-    registration = CourseRegistration.objects.create(student=student, offering=offering)
+@pytest.mark.parametrize(
+    ("ca", "exam"),
+    [("40.01", None), ("-0.50", None), (None, "60.50"), (None, "-1"), ("41", "50")],
+)
+def test_scores_outside_ca_and_exam_limits_are_rejected(registration, ca, exam):
     with pytest.raises(IntegrityError):
-        ResultEntry.objects.create(
-            registration=registration,
-            ca_score=Decimal(ca),
-            exam_score=Decimal(exam),
-            total=Decimal(ca) + Decimal(exam),
-            grade="A",
-            grade_point=Decimal("5"),
-        )
+        ResultEntry.objects.create(registration=registration, ca_score=ca, exam_score=exam)
+
+
+@pytest.mark.parametrize(("ca", "exam"), [("40", None), (None, "60"), (None, None), ("0", "0")])
+def test_entry_saves_with_any_mix_of_scores(registration, ca, exam):
+    ResultEntry.objects.create(registration=registration, ca_score=ca, exam_score=exam)
+
+    entry = ResultEntry.objects.get(registration=registration)
+    assert entry.ca_score == (Decimal(ca) if ca else None)
+    assert entry.exam_score == (Decimal(exam) if exam else None)
+    assert (entry.total, entry.grade, entry.grade_point) == (None, None, None)
 
 
 def test_grade_band_min_cannot_exceed_max():
