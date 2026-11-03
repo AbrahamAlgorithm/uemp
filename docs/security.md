@@ -67,13 +67,6 @@ Earlier runs also reported missing type hints and duplicate route names from the
   - `shadcn` and `deepmerge` (low and moderate): the `shadcn` package is a code generator and stylesheet source used at build time. Fixed by shadcn 1.0.
   - `minimatch` through the ESLint and TypeScript tooling (moderate): development tools that never run in production.
 
-## Found and fixed in the final review
-
-Two gaps in department admin writes were found by testing and are fixed, with tests (`test_account_safety.py`, `test_scope_writes.py`):
-
-- A department admin could change a lecturer's role through the staff endpoint, promoting them to admin or demoting them to student, and could delete staff and student records. Roles now change only through the users endpoint (super admin only), department admins no longer see other admins in the staff list, and these records can't be deleted.
-- A department admin could create a program in another department, move a program there, or open another department's course for a semester. Programs are now forced into the admin's own department, and an offering for another department's course is a `404`.
-
 ## Known limitations
 
 - **Throttle storage.** Sign-in throttling uses Django's local-memory cache, so each Cloud Run instance counts separately. With two instances an attacker gets roughly twice the allowance. A shared cache such as Redis, plus Cloud Armor rate limiting in front of the service, would fix this.
