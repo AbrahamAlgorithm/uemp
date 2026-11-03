@@ -114,7 +114,7 @@ Created by `seed_demo` (see [Demo data](#demo-data)). Sign in with the email, ma
 | Department admin | CVU/CSC/017           | admin.csc@uemp.test     |
 | Super admin      | CVU/REG/010           | superadmin@uemp.test    |
 
-Account activation and password reset are still mock flows: they use the accounts listed on those pages, the emailed code is always `246810`, and they don't change the real sign-in.
+There is no self-service activation or password reset, since email and SMS are out of scope; the login page tells users to ask their department administrator.
 
 ## Architecture
 

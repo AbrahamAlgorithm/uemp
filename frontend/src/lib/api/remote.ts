@@ -1,5 +1,4 @@
 import type {
-  ActivationRequestInput,
   CourseInput,
   DepartmentInput,
   FacultyInput,
@@ -14,12 +13,10 @@ import type {
 } from "../schemas";
 import type {
   AcademicSession,
-  ActivationChallenge,
   AdminDashboard,
   AuditEntry,
   Course,
   CourseAllocation,
-  DemoAccount,
   Department,
   DepartmentDashboard,
   DepartmentReport,
@@ -78,9 +75,6 @@ function toSessionUser(me: MeResponse): SessionUser {
 export const remoteApi = {
   login: async (input: LoginInput) =>
     toSessionUser(await request<MeResponse>("auth/login/", { method: "POST", json: input, refresh: false, redirectToLogin: false })),
-  requestActivation: (input: ActivationRequestInput) => post<ActivationChallenge>("auth/activate/", input),
-  verifyActivation: (input: { identifier: string; code: string }) => post<{ token: string }>("auth/activate/verify/", input),
-  completeActivation: (input: { token: string; password: string }) => post<void>("auth/activate/complete/", input),
   logout: () => request<void>("auth/logout/", { method: "POST", refresh: false, redirectToLogin: false }),
   getSession: async (): Promise<SessionUser | null> => {
     try {
@@ -90,7 +84,6 @@ export const remoteApi = {
       throw error;
     }
   },
-  getDemoAccounts: async (): Promise<DemoAccount[]> => [],
   getCurrentSemester: () => get<Semester>("semesters/current/"),
 
   getStudentDashboard: () => get<StudentDashboard>("student/dashboard/"),

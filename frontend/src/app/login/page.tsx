@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlert, ClipboardList, GraduationCap, LogIn } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -46,16 +45,6 @@ export default function LoginPage() {
         { icon: ClipboardList, title: "Course registration", description: "Register each semester's courses within your unit limit." },
         { icon: GraduationCap, title: "Reviewed results", description: "Scores are approved by your department before you see them." },
       ]}
-      topAction={
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="hidden sm:inline">First time here?</span>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/activate">
-              Activate<span className="hidden sm:inline"> account</span>
-            </Link>
-          </Button>
-        </p>
-      }
     >
       <AuthHeading icon={LogIn} title="Sign in" description="Use your email, matric number or staff ID and your portal password." />
       <form onSubmit={submit} noValidate className="mt-8 space-y-4">
@@ -67,15 +56,11 @@ export default function LoginPage() {
         )}
         <FloatingField control={form.control} name="identifier" label="Email, matric number or staff ID" autoComplete="username" autoFocus />
         <FloatingField control={form.control} name="password" label="Password" type="password" autoComplete="current-password" />
-        <div className="flex justify-end">
-          <Link href="/reset-password" className="text-sm font-medium underline-offset-4 hover:underline">
-            Forgot password?
-          </Link>
-        </div>
         <Button type="submit" size="lg" className="h-12 w-full rounded-xl" disabled={isSubmitting}>
           {isSubmitting && <Spinner />}
           Sign in
         </Button>
+        <p className="text-center text-sm text-muted-foreground">Forgot your password? Contact your department administrator.</p>
       </form>
     </AuthLayout>
   );

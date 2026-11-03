@@ -8,27 +8,21 @@ interface AuthLayoutProps {
   image: { src: string; alt: string };
   headline: string;
   points: { icon: LucideIcon; title: string; description: string }[];
-  topAction?: React.ReactNode;
-  demo?: React.ReactNode;
   children: React.ReactNode;
 }
 
-export function AuthLayout({ image, headline, points, topAction, demo, children }: AuthLayoutProps) {
+export function AuthLayout({ image, headline, points, children }: AuthLayoutProps) {
   return (
     <div className="flex min-h-screen gap-3 bg-background p-3">
       <div className="flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col px-1 py-3 sm:px-8 sm:py-5 xl:px-14">
-        <header className="flex items-center justify-between gap-3">
+        <header>
           <Brand />
-          {topAction}
         </header>
         <main className="flex flex-1 items-center justify-center py-12">
           <div className="w-full max-w-[400px]">{children}</div>
         </main>
-        <footer className="flex flex-col gap-4 text-xs text-muted-foreground sm:flex-row sm:items-end sm:justify-between">
-          {demo ?? <span />}
-          <p className="shrink-0">
-            © {new Date().getFullYear()} {UNIVERSITY_NAME}
-          </p>
+        <footer className="text-xs text-muted-foreground sm:text-right">
+          © {new Date().getFullYear()} {UNIVERSITY_NAME}
         </footer>
       </div>
 
