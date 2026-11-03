@@ -33,6 +33,7 @@ Any other move (approving a draft, editing a submitted sheet, reopening a reject
 | Reject (feedback required) | Department admin of the course's department, from SUBMITTED | `POST /api/result-sheets/{id}/reject/` |
 | Reopen (reason required) | Department admin of the course's department, or super admin, from APPROVED | `POST /api/result-sheets/{id}/reopen/` |
 | View sheets | Department admins see their department's courses; super admin sees all | `GET /api/result-sheets/` |
+| See own results | The student, approved results only | `GET /api/student/courses/`, `GET /api/student/results/statement/` |
 
 The lecturer who teaches the course enters its marks, and the department that owns the course checks them. The super admin oversees every department and can reopen an approved sheet when something has to be corrected, but cannot approve or reject. That keeps separation of duties: whoever publishes a result belongs to the department responsible for the course, and the registry can send results back without being able to publish them.
 
@@ -81,7 +82,7 @@ Only results on APPROVED sheets count.
 
 A failed course comes back as a carry-over. When it is retaken, both attempts count: the earlier F stays in the CGPA alongside the new grade, and the units are counted twice in "units attempted". "Units passed" counts courses with any grade other than F.
 
-Students see their approved results grouped by semester, with GPA per semester, CGPA, and a carry-over flag on retaken courses (`GET /api/student/results/`). Reopening a sheet hides its results from students until it is approved again.
+Students see their approved results grouped by semester, with GPA per semester, CGPA, and a carry-over flag on retaken courses, in My Courses (`GET /api/student/courses/?session=`) and in the printable result statement (`GET /api/student/results/statement/`). A result that is not approved is never sent to the student: the grade fields are null. Reopening a sheet hides its results from students until it is approved again.
 
 ## Borrowed courses
 
@@ -120,4 +121,4 @@ Every save and transition writes one audit row in the same database transaction 
 
 Every row also records the actor and their email, the entity (`results.resultsheet` with the sheet id, or `results.gradescale` with no id for the whole scale), a target such as "CSC 301 2026/2027 First semester", the department that owns the course (so department admins see activity on their courses even when the super admin acted), the client IP, and the time. Sheet rows store the status before and after the change.
 
-The lecturer's submissions page and the review page build each sheet's timeline from the submitted, approved, rejected and reopened rows.
+The lecturer's course page and the review page build each sheet's timeline from the submitted, approved, rejected and reopened rows.
