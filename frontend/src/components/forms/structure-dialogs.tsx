@@ -55,14 +55,15 @@ export function DepartmentFormDialog({
   item,
   onSaved,
   faculties,
-}: EditDialogProps<Department> & { faculties: Faculty[] }) {
+  defaultFacultyId,
+}: EditDialogProps<Department> & { faculties: Faculty[]; defaultFacultyId?: number }) {
   const form = useForm<DepartmentInput>({ resolver: zodResolver(departmentSchema) });
 
   useEffect(() => {
     if (open) {
-      form.reset(item ? { name: item.name, code: item.code, facultyId: item.faculty.id } : { name: "", code: "" });
+      form.reset(item ? { name: item.name, code: item.code, facultyId: item.faculty.id } : { name: "", code: "", facultyId: defaultFacultyId });
     }
-  }, [open, item, form]);
+  }, [open, item, defaultFacultyId, form]);
 
   const save = async (values: DepartmentInput) => {
     const done = await withToast(

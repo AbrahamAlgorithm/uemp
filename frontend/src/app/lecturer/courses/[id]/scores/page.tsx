@@ -27,7 +27,11 @@ export default function ScoreEntryPage() {
   return (
     <>
       <PageHeader
-        back={{ href: `/lecturer/courses/${offeringId}`, label: sheet.course.code }}
+        breadcrumbs={[
+          { label: "My courses", href: "/lecturer/courses" },
+          { label: sheet.course.code, href: `/lecturer/courses/${offeringId}` },
+          { label: "Enter scores" },
+        ]}
         title={`Scores · ${sheet.course.code}`}
         description={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">

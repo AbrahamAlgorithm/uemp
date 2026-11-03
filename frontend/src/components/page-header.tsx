@@ -1,26 +1,17 @@
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
 
 interface PageHeaderProps {
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
-  back?: { href: string; label: string };
+  breadcrumbs?: Crumb[];
 }
 
-export function PageHeader({ title, description, actions, back }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, breadcrumbs }: PageHeaderProps) {
   return (
     <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 space-y-1">
-        {back && (
-          <Link
-            href={back.href}
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground print:hidden"
-          >
-            <ArrowLeft className="size-4" />
-            {back.label}
-          </Link>
-        )}
+        {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
         <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[28px] sm:leading-9">{title}</h1>
         {description && <div className="text-sm text-muted-foreground">{description}</div>}
       </div>

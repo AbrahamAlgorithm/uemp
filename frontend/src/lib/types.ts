@@ -93,6 +93,7 @@ export interface Student {
 
 export interface StaffProfile {
   id: number;
+  userId: number;
   staffId: string;
   title: string;
   firstName: string;
@@ -108,7 +109,8 @@ export interface StaffProfile {
 
 export interface Lecturer extends StaffProfile {
   department: CodedRef;
-  courseCount: number;
+  currentOfferings: { id: number; code: string; title: string; units: number }[];
+  totalUnits: number;
 }
 
 export interface UserAccount {
@@ -129,7 +131,7 @@ export interface UserAccount {
 export interface UserDetail extends UserAccount {
   student: Student | null;
   staff: StaffProfile | null;
-  recentActivity: AuditEntry[];
+  recentActivity: AuditRow[];
 }
 
 export interface CourseSummary {
@@ -160,6 +162,7 @@ export interface LecturerCourse {
   course: CourseSummary;
   semester: Semester;
   sheetStatus: SheetStatus;
+  feedback: string | null;
   studentCount: number;
   scoredCount: number;
 }
@@ -327,106 +330,200 @@ export interface StudentResults {
   unitsPassed: number;
 }
 
-export interface StudentDashboard {
-  student: Student;
-  semester: Semester;
+export type RegistrationState = RegistrationStatus | "NOT_SUBMITTED";
+
+export interface StudentOverview {
+  name: string;
+  firstName: string;
+  matricNumber: string;
+  email: string;
+  status: UserStatus;
+  faculty: CodedRef;
+  department: CodedRef;
+  program: Ref & { award: string };
+  level: Level;
+  entrySession: string | null;
   cgpa: number | null;
-  registeredUnits: number;
-  registeredCourses: number;
-  maxUnits: number;
+  semester: Semester | null;
+  registration: { status: RegistrationState; returnReason: string; registrationOpen: boolean };
+  carryOvers: { code: string; title: string; units: number }[];
 }
 
-export type AuditAction =
-  | "LOGIN"
-  | "CREATE"
-  | "UPDATE"
-  | "REGISTER_COURSES"
-  | "SAVE_SCORES"
-  | "SUBMIT_RESULTS"
-  | "APPROVE_RESULTS"
-  | "REJECT_RESULTS"
-  | "REOPEN_RESULTS"
-  | "ASSIGN_LECTURER"
-  | "CHANGE_STATUS"
-  | "CHANGE_ROLE"
-  | "SET_CURRENT_SEMESTER"
-  | "UPDATE_GRADE_SCALE";
+export interface MySession {
+  id: number;
+  name: string;
+  level: Level;
+  label: string;
+  isCurrent: boolean;
+}
 
-export interface AuditEntry {
+export interface MyCourse {
+  offeringId: number;
+  code: string;
+  title: string;
+  units: number;
+  lecturer: string | null;
+  isCarryOver: boolean;
+  ca: number | null;
+  exam: number | null;
+  total: number | null;
+  grade: Grade | null;
+  gradePoint: number | null;
+}
+
+export interface SemesterCourses {
+  semester: Semester;
+  isCurrent: boolean;
+  registrationOpen: boolean;
+  registration: {
+    status: RegistrationState;
+    returnReason: string;
+    submittedAt: string | null;
+    validatedAt: string | null;
+  };
+  courses: MyCourse[];
+  totalUnits: number;
+  gpa: number | null;
+}
+
+export interface MyCourses {
+  session: { id: number; name: string; isCurrent: boolean };
+  level: Level;
+  label: string;
+  cgpa: number | null;
+  semesters: SemesterCourses[];
+}
+
+export interface ResultStatement extends StudentResults {
+  bands: GradeBand[];
+  generatedAt: string;
+}
+
+export interface LecturerOverview {
+  semester: Semester | null;
+  offerings: {
+    id: number;
+    course: CourseSummary;
+    sheetStatus: SheetStatus;
+    feedback: string | null;
+    studentCount: number;
+    scoredCount: number;
+  }[];
+  needsAction: number;
+}
+
+export interface AuditRow {
   id: number;
   at: string;
-  actor: Ref & { role: Role };
-  action: AuditAction;
+  actor: { id: number; name: string; email: string; role: Role } | null;
+  actorEmail: string;
+  action: string;
+  entityType: string;
+  entityId: string;
   target: string;
   details: string;
-  ipAddress: string;
   department: CodedRef | null;
+  ipAddress: string | null;
 }
 
-export interface DepartmentDashboard {
+export interface AuditDetail extends AuditRow {
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+}
+
+export interface AuditFilters {
+  actions: string[];
+  entityTypes: string[];
+  actors: Ref[];
+}
+
+export interface AuditQuery {
+  page: number;
+  actor?: string;
+  action?: string;
+  entityType?: string;
+  department?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export interface Page<T> {
+  count: number;
+  results: T[];
+}
+
+export interface DepartmentOverview {
   department: CodedRef & { faculty: string };
-  semester: Semester;
-  counts: { students: number; lecturers: number; courses: number; pendingApprovals: number };
-  pending: ResultSheetSummary[];
-  unallocatedCourses: number;
-  recentActivity: AuditEntry[];
+  semester: Semester | null;
+  counts: { students: number; lecturers: number; courses: number; currentOfferings: number; unallocatedOfferings: number };
+  awaitingValidation: number;
+  awaitingReview: number;
+  recentActivity: AuditRow[];
 }
 
-export interface AdminDashboard {
-  semester: Semester;
-  counts: {
+export interface AdminOverview {
+  semester: Semester | null;
+  totals: {
     students: number;
     lecturers: number;
     faculties: number;
     departments: number;
     courses: number;
-    registrations: number;
+    staff: number;
+    awaitingValidation: number;
+    awaitingReview: number;
   };
-  pendingByDepartment: {
-    department: CodedRef;
-    faculty: string;
-    pending: number;
-    oldestSubmittedAt: string | null;
-  }[];
-  recentActivity: AuditEntry[];
+  departments: (CodedRef & { faculty: string; students: number; awaitingValidation: number; awaitingReview: number })[];
+  recentActivity: AuditRow[];
+}
+
+export interface LevelSummary {
+  level: Level;
+  studentCount: number;
+  entrySessions: { id: number; name: string; studentCount: number }[];
+}
+
+export type SemesterRecord = Omit<SemesterCourses, "isCurrent" | "registrationOpen">;
+
+export interface StudentRecord {
+  student: Student;
+  cgpa: number | null;
+  carryOvers: { code: string; title: string; units: number }[];
+  semesters: SemesterRecord[];
+}
+
+export interface DepartmentAdmin {
+  id: number;
+  name: string;
+  email: string;
+  status: UserStatus;
+  staffId: string | null;
+}
+
+export type ReportKind = "students" | "registrations" | "performance" | "at-risk" | "departments";
+
+export interface ReportTable {
+  title: string;
+  columns: { key: string; label: string }[];
+  rows: Record<string, string | number | null>[];
+}
+
+export interface Report {
+  title: string;
+  department: CodedRef | null;
+  semester: Semester | null;
+  tables: ReportTable[];
+}
+
+export interface ReportQuery {
+  department?: number;
+  semester?: number;
+  level?: number;
+  program?: number;
 }
 
 export type GradeDistribution = Record<Grade, number>;
-
-export interface CoursePerformance {
-  course: CourseSummary;
-  status: SheetStatus;
-  students: number;
-  average: number | null;
-  passRate: number | null;
-  distribution: GradeDistribution;
-}
-
-export interface DepartmentReport {
-  department: CodedRef;
-  semester: Semester;
-  students: Student[];
-  registrations: { course: CourseSummary; registered: number }[];
-  performance: CoursePerformance[];
-}
-
-export interface DepartmentStats {
-  department: CodedRef;
-  faculty: string;
-  students: number;
-  lecturers: number;
-  courses: number;
-  registrations: number;
-  averageCgpa: number | null;
-  passRate: number | null;
-}
-
-export interface UniversityReport {
-  semester: Semester;
-  departments: DepartmentStats[];
-  studentsByLevel: { level: Level; count: number }[];
-  resultStatus: Record<SheetStatus, number>;
-}
 
 export interface GradeBand {
   grade: Grade;

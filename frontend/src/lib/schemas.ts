@@ -18,17 +18,6 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const studentContactSchema = z.object({
-  phone,
-  address: z.string().trim().min(10, "Enter your full address").max(200),
-});
-export type StudentContactInput = z.infer<typeof studentContactSchema>;
-
-export const staffContactSchema = z.object({
-  phone,
-});
-export type StaffContactInput = z.infer<typeof staffContactSchema>;
-
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Current password is required"),

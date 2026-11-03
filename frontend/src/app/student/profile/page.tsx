@@ -1,59 +1,27 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-
-import { DetailList } from "@/components/detail-list";
 import { ChangePasswordButton } from "@/components/change-password";
-import { FormDialog } from "@/components/form-dialog";
-import { TextareaField, TextField } from "@/components/form-fields";
+import { DetailList } from "@/components/detail-list";
 import { PageHeader } from "@/components/page-header";
 import { ErrorState, PageSkeleton } from "@/components/states";
 import { UserStatusBadge } from "@/components/status-badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { studentContactSchema, type StudentContactInput } from "@/lib/schemas";
-import { withToast } from "@/lib/toast";
 
 export default function StudentProfilePage() {
   const { data, error, reload } = useAsync(api.getStudentProfile);
-  const [editing, setEditing] = useState(false);
-  const form = useForm<StudentContactInput>({ resolver: zodResolver(studentContactSchema) });
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton rows={6} />;
-
-  const save = async (values: StudentContactInput) => {
-    const saved = await withToast(api.updateStudentContact(values), "Contact details updated");
-    if (saved) reload();
-    return saved;
-  };
 
   return (
     <>
       <PageHeader
         title="Profile"
-        description="You can update your phone number and address. Your department handles any other changes."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                form.reset({ phone: data.phone, address: data.address });
-                setEditing(true);
-              }}
-            >
-              <Pencil />
-              Edit contact details
-            </Button>
-            <ChangePasswordButton />
-          </div>
-        }
+        description="Your department handles changes to these details."
+        actions={<ChangePasswordButton />}
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -64,8 +32,8 @@ export default function StudentProfilePage() {
             <DetailList
               items={[
                 { label: "Full name", value: data.fullName },
-                { label: "Gender", value: data.gender === "F" ? "Female" : "Male" },
-                { label: "Date of birth", value: data.dateOfBirth && formatDate(data.dateOfBirth) },
+                { label: "Gender", value: data.gender === "F" ? "Female" : data.gender === "M" ? "Male" : "" },
+                { label: "Date of birth", value: data.dateOfBirth && data.dateOfBirth !== "null" ? formatDate(data.dateOfBirth) : "" },
                 { label: "Email", value: data.email },
                 { label: "Phone", value: data.phone },
                 { label: "Address", value: data.address },
@@ -92,11 +60,6 @@ export default function StudentProfilePage() {
           </CardContent>
         </Card>
       </div>
-
-      <FormDialog open={editing} onOpenChange={setEditing} title="Edit contact details" form={form} onSubmit={save}>
-        <TextField control={form.control} name="phone" label="Phone number" type="tel" autoComplete="tel" />
-        <TextareaField control={form.control} name="address" label="Address" />
-      </FormDialog>
     </>
   );
 }

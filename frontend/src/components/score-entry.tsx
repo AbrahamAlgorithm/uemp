@@ -200,7 +200,7 @@ export function ScoreEntry({ sheet, scale, onSaved, onSubmitted }: ScoreEntryPro
           <TemplateDownload offeringId={sheet.offeringId} disabled={!sheet.editable} />
           <Button variant="outline" onClick={startImport} disabled={!sheet.editable || saving}>
             <Upload />
-            Import scores
+            Import from Excel/CSV
           </Button>
         </div>
       </div>

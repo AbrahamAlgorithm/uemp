@@ -1,89 +1,88 @@
 "use client";
 
-import { BookOpen, Building, ClipboardList, Users } from "lucide-react";
+import { BookOpen, Building, ClipboardCheck, ClipboardList, UserCog, Users } from "lucide-react";
 import Link from "next/link";
 
 import { ActivityFeed } from "@/components/activity-feed";
 import { PageHeader } from "@/components/page-header";
 import { StatCard, StatGrid } from "@/components/stat-card";
 import { ErrorState, PageSkeleton } from "@/components/states";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
-import { formatDate, semesterLabel } from "@/lib/format";
-
+import { semesterLabel } from "@/lib/format";
 
 export default function AdminDashboardPage() {
-  const { data, error, reload } = useAsync(api.getAdminDashboard);
+  const { data, error, reload } = useAsync(api.getAdminOverview);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton cards={4} rows={6} />;
 
-  const { counts } = data;
-  const pending = data.pendingByDepartment.reduce((sum, row) => sum + row.pending, 0);
+  const { totals } = data;
 
   return (
     <>
-      <PageHeader title="University overview" description={semesterLabel(data.semester)} />
+      <PageHeader title="University overview" description={data.semester ? semesterLabel(data.semester) : "No semester is in progress"} />
       <StatGrid>
-        <StatCard label="Students" tone="blue" value={counts.students} icon={Users} href="/admin/users" />
-        <StatCard label="Lecturers" tone="violet" value={counts.lecturers} icon={Users} hint="Active" href="/admin/users" />
+        <StatCard label="Students" tone="blue" value={totals.students} icon={Users} href="/admin/users" />
+        <StatCard label="Lecturers" tone="violet" value={totals.lecturers} icon={UserCog} hint="Active" href="/admin/users" />
         <StatCard
-          label="Departments" tone="green"
-          value={counts.departments}
+          label="Departments"
+          tone="green"
+          value={totals.departments}
           icon={Building}
-          hint={`In ${counts.faculties} faculties`}
-          href="/admin/departments"
+          hint={`In ${totals.faculties} faculties`}
+          href="/admin/structure"
         />
+        <StatCard label="Courses" tone="neutral" value={totals.courses} icon={BookOpen} hint="In the catalogue" href="/admin/structure" />
+      </StatGrid>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <StatCard
-          label="Registrations" tone="orange"
-          value={counts.registrations}
+          label="Registrations awaiting validation"
+          tone="orange"
+          value={totals.awaitingValidation}
           icon={ClipboardList}
-          hint={`${counts.courses} courses in the catalogue`}
           href="/admin/registrations"
         />
-      </StatGrid>
+        <StatCard
+          label="Result sheets awaiting review"
+          tone="orange"
+          value={totals.awaitingReview}
+          icon={ClipboardCheck}
+          href="/admin/results"
+        />
+      </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card className="h-fit pb-0">
           <CardHeader>
-            <CardTitle>Pending approvals by department</CardTitle>
-            <CardAction>
-              <Badge variant={pending ? "default" : "secondary"}>{pending} pending</Badge>
-            </CardAction>
+            <CardTitle>Departments</CardTitle>
           </CardHeader>
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Department</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
-                <TableHead>Waiting since</TableHead>
+                <TableHead className="text-right">Students</TableHead>
+                <TableHead className="text-right">To validate</TableHead>
+                <TableHead className="text-right">To review</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.pendingByDepartment.map((row) => (
-                <TableRow key={row.department.id}>
+              {data.departments.map((row) => (
+                <TableRow key={row.id}>
                   <TableCell className="whitespace-normal">
-                    <p className="font-medium">{row.department.name}</p>
+                    <p className="font-medium">{row.name}</p>
                     <p className="text-xs text-muted-foreground">{row.faculty}</p>
                   </TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">{row.pending}</TableCell>
-                  <TableCell>{formatDate(row.oldestSubmittedAt)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{row.students}</TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">{row.awaitingValidation}</TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">{row.awaitingReview}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          <div className="border-t px-6 py-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/admin/results">
-                <BookOpen />
-                Result approval oversight
-              </Link>
-            </Button>
-          </div>
         </Card>
         <Card>
           <CardHeader>

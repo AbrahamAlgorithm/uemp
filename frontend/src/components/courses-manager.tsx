@@ -1,36 +1,36 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { DataTable, SortHeader } from "@/components/data-table";
-import { FilterSelect, matches } from "@/components/filter-select";
+import { DeleteDialog, type DeleteTarget } from "@/components/delete-dialog";
 import { CourseFormDialog } from "@/components/forms/course-form-dialog";
-import { PageHeader } from "@/components/page-header";
+import { useSession } from "@/components/session-provider";
+import { ErrorState, PageSkeleton } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAsync } from "@/hooks/use-async";
+import { api } from "@/lib/api";
 import { LEVELS } from "@/lib/constants";
-import type { CodedRef, Course, Program } from "@/lib/types";
+import type { Course, Level } from "@/lib/types";
 
-interface CoursesManagerProps {
-  courses: Course[];
-  programs: Program[];
-  onChanged: () => void;
-  departments?: CodedRef[];
-  defaultDepartmentId?: number;
-}
-
-export function CoursesManager({ courses, programs, onChanged, departments, defaultDepartmentId }: CoursesManagerProps) {
-  const [level, setLevel] = useState("all");
-  const [semester, setSemester] = useState("all");
-  const [department, setDepartment] = useState("all");
+export function CoursesManager({ departmentId }: { departmentId?: number }) {
+  const { user } = useSession();
+  const { data, error, reload } = useAsync(
+    () => Promise.all([api.getCourses(departmentId), api.getPrograms(departmentId)]),
+    departmentId ?? "own",
+  );
+  const [level, setLevel] = useState<Level>(100);
   const [editing, setEditing] = useState<Course | null>(null);
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null);
 
-  const rows = courses.filter(
-    (course) => matches(level, course.level) && matches(semester, course.semester) && matches(department, course.department.id),
-  );
+  if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (!data) return <PageSkeleton rows={8} />;
 
+  const [courses, programs] = data;
   const edit = (course: Course | null) => {
     setEditing(course);
     setOpen(true);
@@ -42,86 +42,84 @@ export function CoursesManager({ courses, programs, onChanged, departments, defa
       header: ({ column }) => <SortHeader column={column} title="Code" />,
       cell: ({ getValue }) => <span className="font-medium whitespace-nowrap">{getValue<string>()}</span>,
     },
-    { accessorKey: "title", header: ({ column }) => <SortHeader column={column} title="Title" />, cell: ({ getValue }) => <span className="block min-w-52">{getValue<string>()}</span> },
-    ...(departments ? [{ id: "department", accessorFn: (row: Course) => row.department.code, header: "Dept" }] : []),
+    {
+      accessorKey: "title",
+      header: ({ column }) => <SortHeader column={column} title="Title" />,
+      cell: ({ getValue }) => <span className="block min-w-52">{getValue<string>()}</span>,
+    },
     { accessorKey: "units", header: "Units" },
-    { accessorKey: "level", header: ({ column }) => <SortHeader column={column} title="Level" /> },
     { accessorKey: "semester", header: "Semester", cell: ({ getValue }) => (getValue() === "FIRST" ? "First" : "Second") },
     {
       id: "programs",
       accessorFn: (row) => row.programs.map((program) => program.name).join(", "),
       header: "Available to",
-      cell: ({ getValue }) => <span className="block max-w-64 min-w-40 text-xs whitespace-normal text-muted-foreground">{getValue<string>()}</span>,
+      cell: ({ getValue }) => (
+        <span className="block max-w-64 min-w-40 text-xs whitespace-normal text-muted-foreground">{getValue<string>()}</span>
+      ),
     },
     {
       id: "actions",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <Button variant="ghost" size="icon-sm" onClick={() => edit(row.original)} aria-label={`Edit ${row.original.code}`}>
-          <Pencil />
-        </Button>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon-sm" onClick={() => edit(row.original)} aria-label={`Edit ${row.original.code}`}>
+            <Pencil />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Delete ${row.original.code}`}
+            onClick={() => setDeleting({ noun: "course", name: row.original.code, remove: () => api.deleteCourse(row.original.id) })}
+          >
+            <Trash2 />
+          </Button>
+        </div>
       ),
     },
   ];
 
   return (
     <>
-      <PageHeader
-        title="Courses"
-        description={`${courses.length} courses`}
-        actions={
-          <Button onClick={() => edit(null)}>
-            <Plus />
-            Add course
-          </Button>
-        }
-      />
-      <DataTable
-        columns={columns}
-        data={rows}
-        pageSize={15}
-        searchPlaceholder="Search code or title"
-        emptyTitle="No courses"
-        toolbar={
-          <>
-            {departments && (
-              <FilterSelect
-                label="Department"
-                value={department}
-                onChange={setDepartment}
-                allLabel="All departments"
-                options={departments.map((item) => ({ value: item.id, label: item.name }))}
-              />
-            )}
-            <FilterSelect
-              label="Level"
-              value={level}
-              onChange={setLevel}
-              allLabel="All levels"
-              options={LEVELS.map((value) => ({ value, label: `${value} level` }))}
+      <Tabs value={String(level)} onValueChange={(value) => setLevel(Number(value) as Level)}>
+        <TabsList variant="line">
+          {LEVELS.map((item) => (
+            <TabsTrigger key={item} value={String(item)}>
+              {item} level
+              <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
+                {courses.filter((course) => course.level === item).length}
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {LEVELS.map((item) => (
+          <TabsContent key={item} value={String(item)} className="mt-4">
+            <DataTable
+              columns={columns}
+              data={courses.filter((course) => course.level === item)}
+              pageSize={15}
+              searchPlaceholder="Search code or title"
+              emptyTitle={`No ${item} level courses`}
+              emptyDescription="Add a course to offer it to students at this level."
+              toolbar={
+                <Button onClick={() => edit(null)} disabled={programs.length === 0}>
+                  <Plus />
+                  Add {item} level course
+                </Button>
+              }
             />
-            <FilterSelect
-              label="Semester"
-              value={semester}
-              onChange={setSemester}
-              allLabel="Both semesters"
-              options={[
-                { value: "FIRST", label: "First" },
-                { value: "SECOND", label: "Second" },
-              ]}
-            />
-          </>
-        }
-      />
+          </TabsContent>
+        ))}
+      </Tabs>
       <CourseFormDialog
         open={open}
         onOpenChange={setOpen}
         course={editing}
         programs={programs}
-        departments={departments}
-        defaultDepartmentId={defaultDepartmentId}
-        onSaved={onChanged}
+        defaultDepartmentId={departmentId ?? user?.department?.id}
+        defaultLevel={level}
+        onSaved={reload}
       />
+      <DeleteDialog target={deleting} onClose={() => setDeleting(null)} onDeleted={reload} />
     </>
   );
 }

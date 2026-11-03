@@ -19,10 +19,11 @@ interface LecturerFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lecturer: Lecturer | null;
+  departmentId?: number;
   onSaved: () => void;
 }
 
-export function LecturerFormDialog({ open, onOpenChange, lecturer, onSaved }: LecturerFormDialogProps) {
+export function LecturerFormDialog({ open, onOpenChange, lecturer, departmentId, onSaved }: LecturerFormDialogProps) {
   const form = useForm<LecturerInput>({ resolver: zodResolver(lecturerSchema), defaultValues: EMPTY });
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function LecturerFormDialog({ open, onOpenChange, lecturer, onSaved }: Le
 
   const save = async (values: LecturerInput) => {
     const done = await withToast(
-      lecturer ? api.updateLecturer(lecturer.id, values) : api.createLecturer(values),
+      lecturer ? api.updateLecturer(lecturer.id, values) : api.createLecturer(values, departmentId),
       lecturer ? "Lecturer record updated" : `${values.title} ${values.lastName} added`,
     );
     if (done) onSaved();

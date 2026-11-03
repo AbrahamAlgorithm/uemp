@@ -9,19 +9,20 @@ import { SelectField, TextField } from "@/components/form-fields";
 import { api } from "@/lib/api";
 import { studentSchema, type StudentInput } from "@/lib/schemas";
 import { withToast } from "@/lib/toast";
-import type { Program, Student } from "@/lib/types";
+import type { Level, Program, Student } from "@/lib/types";
 
 interface StudentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   student: Student | null;
   programs: Program[];
+  defaultLevel?: Level;
   onSaved: () => void;
 }
 
 const EMPTY = { firstName: "", lastName: "", email: "", matricNumber: "", phone: "" };
 
-export function StudentFormDialog({ open, onOpenChange, student, programs, onSaved }: StudentFormDialogProps) {
+export function StudentFormDialog({ open, onOpenChange, student, programs, defaultLevel, onSaved }: StudentFormDialogProps) {
   const form = useForm<StudentInput>({ resolver: zodResolver(studentSchema), defaultValues: EMPTY });
   const programId = useWatch({ control: form.control, name: "programId" });
   const levels = programs.find((program) => program.id === programId)?.levels ?? [];
@@ -40,9 +41,9 @@ export function StudentFormDialog({ open, onOpenChange, student, programs, onSav
             gender: student.gender,
             phone: student.phone,
           }
-        : EMPTY,
+        : { ...EMPTY, level: defaultLevel },
     );
-  }, [open, student, form]);
+  }, [open, student, defaultLevel, form]);
 
   const save = async (values: StudentInput) => {
     const done = await withToast(

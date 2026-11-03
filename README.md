@@ -1,6 +1,6 @@
 # UEMP: University Education Management Portal
 
-UEMP is a web portal for running a university's academic records: students register for courses, lecturers enter results, departments review and approve them, and administrators manage the whole process. Each of those roles gets its own area. This repository is a monorepo with a Django REST API and a Next.js frontend, deployed as two Google Cloud Run services backed by Cloud SQL for PostgreSQL. The frontend for all four roles is built. Sign-in runs against the Django API with cookie-based JWT auth; the other pages still use in-browser mock data behind a single API layer until their endpoints exist.
+UEMP is a web portal for running a university's academic records: students register for courses, lecturers enter results, departments review and approve them, and administrators manage the whole process. Each of those roles gets its own area. This repository is a monorepo with a Django REST API and a Next.js frontend, deployed as two Google Cloud Run services backed by Cloud SQL for PostgreSQL. Every page for all four roles runs against the Django API, which authenticates with cookie-based JWTs.
 
 ## Stack
 
@@ -34,8 +34,7 @@ uemp/
         │                     # /department and /admin areas
         ├── components/       # app shell, data table, dialogs, badges, ui/ (shadcn)
         ├── hooks/
-        ├── lib/api/          # one function per operation, mock or real
-        ├── lib/mock/         # seed data and mock handlers
+        ├── lib/api/          # one function per api operation
         └── middleware.ts     # pass-through; role redirects later
 ```
 
@@ -75,31 +74,18 @@ docker compose exec api python manage.py seed_demo --reset   # wipe the demo row
 
 Run it once before signing in to the web app. It loads two faculties, three departments, sessions from 2022/2023 to 2026/2027 (only the last two have semesters), courses, registrations and result sheets in every state, and 31 accounts on the `uemp.test` domain. Every account uses the password in `SEED_PASSWORD` (default `Demo@2026`), and the command prints the full list of logins when it finishes.
 
-### Mock data
+## Pages by role
 
-With `NEXT_PUBLIC_USE_MOCKS=true` (the default in compose and `npm run dev`) the UI reads and writes an in-browser copy of the seed data in `frontend/src/lib/mock`, so changes last until the page is reloaded. Sign-in, sign-out and the session always go to Django; once you are signed in, mock pages show the demo user for your role. Pages only import from `lib/api`; `lib/api/remote.ts` lists the endpoints the UI expects, and setting the flag to `false` switches every page to them.
+| Role             | Pages                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Student          | Dashboard, My Courses (registration, grades by session, result statement), Profile                                        |
+| Lecturer         | Dashboard, My Courses (course page, score entry, Excel/CSV import), Profile                                              |
+| Department admin | Dashboard, Students, Lecturers, Programs, Courses, Allocations, Registrations, Results, Reports                          |
+| Super admin      | Dashboard, Academic Structure, Academic Calendar, Users, Registrations, Results, Reports, Audit Log, Grading Scale        |
 
-### Backend tests
+Only approved results ever reach students, the statement and the reports. Reports can be downloaded as CSV with `?format=csv`.
 
-Tests run against Postgres, so start the database first:
-
-```bash
-docker compose up -d db
-cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pytest
-```
-
-### Frontend without Docker
-
-```bash
-cd frontend
-npm ci
-npm run dev     # proxies /api/* to http://localhost:8000 unless API_URL is set
-npm run lint
-npm run build
-```
+Fee payment and other student services are not part of this release; they would be a separate module.
 
 ## Live URLs
 

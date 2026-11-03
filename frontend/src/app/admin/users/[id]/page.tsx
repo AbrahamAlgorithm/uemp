@@ -27,7 +27,7 @@ export default function UserDetailPage() {
   return (
     <>
       <PageHeader
-        back={{ href: "/admin/users", label: "Users" }}
+        breadcrumbs={[{ label: "Users", href: "/admin/users" }, { label: user.fullName }]}
         title={user.fullName}
         description={
           <span className="flex items-center gap-3">

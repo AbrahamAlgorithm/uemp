@@ -1,4 +1,4 @@
-import type { AuditAction, Level, RegistrationStatus, Role, SemesterName, SheetStatus, UserStatus } from "./types";
+import type { Level, RegistrationState, Role, SemesterName, SheetStatus, UserStatus } from "./types";
 
 export const UNIVERSITY_NAME = "Crestview University";
 export const UNIVERSITY_ADDRESS = "Ibadan, Oyo State, Nigeria";
@@ -29,8 +29,8 @@ export const USER_STATUS_LABELS: Record<UserStatus, string> = {
   SUSPENDED: "Suspended",
 };
 
-export const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus | "NONE", string> = {
-  NONE: "Not submitted",
+export const REGISTRATION_STATUS_LABELS: Record<RegistrationState, string> = {
+  NOT_SUBMITTED: "Not submitted",
   SUBMITTED: "Awaiting validation",
   VALIDATED: "Validated",
   RETURNED: "Returned",
@@ -48,19 +48,36 @@ export const SEMESTER_LABELS: Record<SemesterName, string> = {
   SECOND: "Second semester",
 };
 
-export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+export const AUDIT_ACTION_LABELS: Record<string, string> = {
   LOGIN: "Signed in",
+  LOGOUT: "Signed out",
   CREATE: "Created",
   UPDATE: "Updated",
-  REGISTER_COURSES: "Registered courses",
-  SAVE_SCORES: "Saved scores",
-  SUBMIT_RESULTS: "Submitted results",
-  APPROVE_RESULTS: "Approved results",
-  REJECT_RESULTS: "Rejected results",
-  REOPEN_RESULTS: "Reopened results",
-  ASSIGN_LECTURER: "Assigned lecturer",
+  DELETE: "Deleted",
+  PASSWORD_CHANGED: "Changed password",
+  PASSWORD_RESET: "Reset password",
   CHANGE_STATUS: "Changed status",
   CHANGE_ROLE: "Changed role",
-  SET_CURRENT_SEMESTER: "Set current semester",
-  UPDATE_GRADE_SCALE: "Updated grade scale",
+  OFFERING_CREATED: "Opened offering",
+  LECTURER_ASSIGNED: "Assigned lecturer",
+  SEMESTER_SET_CURRENT: "Set current semester",
+  REGISTRATION_WINDOW_OPENED: "Opened registration",
+  REGISTRATION_WINDOW_CLOSED: "Closed registration",
+  REGISTRATION_SUBMITTED: "Submitted registration",
+  REGISTRATION_VALIDATED: "Validated registration",
+  REGISTRATION_RETURNED: "Returned registration",
+  SCORES_SAVED: "Saved scores",
+  RESULTS_IMPORTED: "Imported scores",
+  RESULTS_SUBMITTED: "Submitted results",
+  RESULTS_APPROVED: "Approved results",
+  RESULTS_REJECTED: "Rejected results",
+  RESULTS_REOPENED: "Reopened results",
+  GRADE_SCALE_UPDATED: "Updated grading scale",
+  GRADE_SCALE_RESET: "Reset grading scale",
 };
+
+export function auditActionLabel(action: string): string {
+  if (AUDIT_ACTION_LABELS[action]) return AUDIT_ACTION_LABELS[action];
+  const words = action.toLowerCase().replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

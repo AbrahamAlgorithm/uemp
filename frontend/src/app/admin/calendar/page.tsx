@@ -19,7 +19,7 @@ import { withToast } from "@/lib/toast";
 import type { Semester } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export default function SessionsPage() {
+export default function AcademicCalendarPage() {
   const { data, error, reload } = useAsync(api.getSessions);
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState<Semester | null>(null);
@@ -48,7 +48,7 @@ export default function SessionsPage() {
   return (
     <>
       <PageHeader
-        title="Sessions and semesters"
+        title="Academic calendar"
         description="Registration and score entry always use the current semester."
         actions={
           <Button onClick={() => setAdding(true)}>

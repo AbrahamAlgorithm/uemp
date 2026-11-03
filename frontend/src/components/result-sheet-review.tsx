@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EntriesTable } from "@/components/entries-table";
+import type { Crumb } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { PerformanceSummary } from "@/components/performance-summary";
 import { SheetBanner } from "@/components/sheet-banner";
@@ -21,11 +22,11 @@ type Action = "approve" | "reject" | "reopen";
 
 interface ResultSheetReviewProps {
   sheetId: number;
-  back: { href: string; label: string };
+  crumbs: Crumb[];
   canApprove: boolean;
 }
 
-export function ResultSheetReview({ sheetId, back, canApprove }: ResultSheetReviewProps) {
+export function ResultSheetReview({ sheetId, crumbs, canApprove }: ResultSheetReviewProps) {
   const { data: sheet, error, reload, setData } = useAsync(() => api.getResultSheet(sheetId), sheetId);
   const [action, setAction] = useState<Action | null>(null);
 
@@ -39,7 +40,7 @@ export function ResultSheetReview({ sheetId, back, canApprove }: ResultSheetRevi
   return (
     <div className="space-y-6">
       <PageHeader
-        back={back}
+        breadcrumbs={[...crumbs, { label: `${sheet.course.code}` }]}
         title={`${sheet.course.code} ${sheet.course.title}`}
         description={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">

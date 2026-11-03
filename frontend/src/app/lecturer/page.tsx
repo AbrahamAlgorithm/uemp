@@ -4,6 +4,7 @@ import { BookOpen, Clock, PencilLine, TriangleAlert, Users } from "lucide-react"
 import Link from "next/link";
 
 import { PageHeader } from "@/components/page-header";
+import { useSession } from "@/components/session-provider";
 import { StatCard, StatGrid } from "@/components/stat-card";
 import { EmptyState, ErrorState, PageSkeleton } from "@/components/states";
 import { SheetStatusBadge } from "@/components/status-badge";
@@ -11,25 +12,29 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useSession } from "@/components/session-provider";
 import { useAsync } from "@/hooks/use-async";
 import { api } from "@/lib/api";
-import type { LecturerCourse } from "@/lib/types";
+import { semesterLabel } from "@/lib/format";
+import type { SheetStatus } from "@/lib/types";
 
-const needsAction = (course: LecturerCourse) => course.sheetStatus === "DRAFT" || course.sheetStatus === "REJECTED";
+const needsAction = (status: SheetStatus) => status === "DRAFT" || status === "REJECTED";
 
 export default function LecturerDashboardPage() {
   const { user } = useSession();
-  const { data, error, reload } = useAsync(() => api.getMyOfferings());
+  const { data, error, reload } = useAsync(api.getLecturerOverview);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton cards={4} rows={5} />;
 
-  const rejected = data.filter((course) => course.sheetStatus === "REJECTED");
+  const { offerings } = data;
+  const rejected = offerings.filter((offering) => offering.sheetStatus === "REJECTED");
 
   return (
     <>
-      <PageHeader title={`Welcome, ${user?.fullName ?? ""}`} description="Your courses and result sheets for this semester." />
+      <PageHeader
+        title={`Welcome, ${user?.fullName ?? ""}`}
+        description={data.semester ? `Your courses and result sheets for ${semesterLabel(data.semester)}.` : "No semester is in progress."}
+      />
 
       {rejected.length > 0 && (
         <Alert className="mb-6 border-red-200 bg-red-50 text-red-900 *:data-[slot=alert-description]:text-red-800">
@@ -38,34 +43,36 @@ export default function LecturerDashboardPage() {
             {rejected.length === 1 ? "A result sheet was" : `${rejected.length} result sheets were`} returned for corrections
           </AlertTitle>
           <AlertDescription>
-            <p>
-              {rejected.map((course, index) => (
-                <span key={course.offeringId}>
-                  {index > 0 && ", "}
-                  <Link href={`/lecturer/courses/${course.offeringId}/scores`} className="font-medium underline underline-offset-2">
-                    {course.course.code}
+            <ul className="space-y-1">
+              {rejected.map((offering) => (
+                <li key={offering.id}>
+                  <Link href={`/lecturer/courses/${offering.id}/scores`} className="font-medium underline underline-offset-2">
+                    {offering.course.code}
                   </Link>
-                </span>
+                  {offering.feedback && <span>: {offering.feedback}</span>}
+                </li>
               ))}
-            </p>
+            </ul>
           </AlertDescription>
         </Alert>
       )}
 
       <StatGrid>
-        <StatCard label="Assigned courses" tone="blue" value={data.length} icon={BookOpen} href="/lecturer/courses" />
-        <StatCard label="Students" tone="violet" value={data.reduce((sum, course) => sum + course.studentCount, 0)} icon={Users} hint="Across all courses" />
+        <StatCard label="Assigned courses" tone="blue" value={offerings.length} icon={BookOpen} href="/lecturer/courses" />
         <StatCard
-          label="Needs your action" tone="orange"
-          value={data.filter(needsAction).length}
-          icon={PencilLine}
-          hint="Drafts and returned sheets"
+          label="Students"
+          tone="violet"
+          value={offerings.reduce((sum, offering) => sum + offering.studentCount, 0)}
+          icon={Users}
+          hint="Across all courses"
         />
+        <StatCard label="Needs your action" tone="orange" value={data.needsAction} icon={PencilLine} hint="Drafts and returned sheets" />
         <StatCard
-          label="Awaiting approval" tone="green"
-          value={data.filter((course) => course.sheetStatus === "SUBMITTED").length}
+          label="Awaiting approval"
+          tone="green"
+          value={offerings.filter((offering) => offering.sheetStatus === "SUBMITTED").length}
           icon={Clock}
-          href="/lecturer/submissions"
+          hint="With your department"
         />
       </StatGrid>
 
@@ -73,7 +80,7 @@ export default function LecturerDashboardPage() {
         <CardHeader>
           <CardTitle>Result sheets</CardTitle>
         </CardHeader>
-        {data.length === 0 ? (
+        {offerings.length === 0 ? (
           <EmptyState icon={BookOpen} title="No courses assigned" description="Your department hasn't assigned you any courses this semester." />
         ) : (
           <Table>
@@ -88,23 +95,21 @@ export default function LecturerDashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((course) => (
-                <TableRow key={course.offeringId}>
+              {offerings.map((offering) => (
+                <TableRow key={offering.id}>
                   <TableCell className="min-w-56">
-                    <p className="font-medium">{course.course.code}</p>
-                    <p className="text-xs text-muted-foreground">{course.course.title}</p>
+                    <p className="font-medium">{offering.course.code}</p>
+                    <p className="text-xs text-muted-foreground">{offering.course.title}</p>
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap tabular-nums">
-                    {course.scoredCount} of {course.studentCount} scored
+                    {offering.scoredCount} of {offering.studentCount} scored
                   </TableCell>
                   <TableCell>
-                    <SheetStatusBadge status={course.sheetStatus} />
+                    <SheetStatusBadge status={offering.sheetStatus} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" variant={needsAction(course) ? "default" : "outline"} asChild>
-                      <Link href={`/lecturer/courses/${course.offeringId}/scores`}>
-                        {needsAction(course) ? "Enter scores" : "View scores"}
-                      </Link>
+                    <Button size="sm" variant={needsAction(offering.sheetStatus) ? "default" : "outline"} asChild>
+                      <Link href={`/lecturer/courses/${offering.id}`}>{needsAction(offering.sheetStatus) ? "Open course" : "View course"}</Link>
                     </Button>
                   </TableCell>
                 </TableRow>

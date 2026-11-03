@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import { LEVELS } from "@/lib/constants";
 import { courseSchema, type CourseInput } from "@/lib/schemas";
 import { withToast } from "@/lib/toast";
-import type { CodedRef, Course, Ref } from "@/lib/types";
+import type { CodedRef, Course, Level, Ref } from "@/lib/types";
 
 interface CourseFormDialogProps {
   open: boolean;
@@ -19,6 +19,7 @@ interface CourseFormDialogProps {
   programs: (Ref & { award?: string })[];
   departments?: CodedRef[];
   defaultDepartmentId?: number;
+  defaultLevel?: Level;
   onSaved: () => void;
 }
 
@@ -29,6 +30,7 @@ export function CourseFormDialog({
   programs,
   departments,
   defaultDepartmentId,
+  defaultLevel,
   onSaved,
 }: CourseFormDialogProps) {
   const form = useForm<CourseInput>({ resolver: zodResolver(courseSchema) });
@@ -46,9 +48,9 @@ export function CourseFormDialog({
             departmentId: course.department.id,
             programIds: course.programs.map((program) => program.id),
           }
-        : { code: "", title: "", departmentId: defaultDepartmentId, programIds: [] },
+        : { code: "", title: "", level: defaultLevel, departmentId: defaultDepartmentId, programIds: [] },
     );
-  }, [open, course, defaultDepartmentId, form]);
+  }, [open, course, defaultDepartmentId, defaultLevel, form]);
 
   // keep programs from other departments that the course is already open to
   const programOptions = [

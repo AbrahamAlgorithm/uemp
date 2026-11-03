@@ -20,6 +20,7 @@ export default function UsersPage() {
   const { data, error, reload } = useAsync(() => Promise.all([api.getUsers(), api.getDepartments()]));
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState("all");
+  const [department, setDepartment] = useState("all");
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton rows={10} />;
@@ -60,7 +61,12 @@ export default function UsersPage() {
       <PageHeader title="Users" description={`${users.length} accounts across the university`} />
       <DataTable
         columns={columns}
-        data={users.filter((user) => matches(role, user.role) && matches(status, user.status))}
+        data={users.filter(
+          (user) =>
+            matches(role, user.role) &&
+            matches(status, user.status) &&
+            (department === "all" || department === String(user.department?.id)),
+        )}
         pageSize={15}
         searchPlaceholder="Search name, email or ID"
         emptyTitle="No users"
@@ -72,6 +78,13 @@ export default function UsersPage() {
               onChange={setRole}
               allLabel="All roles"
               options={(Object.keys(ROLE_LABELS) as Role[]).map((value) => ({ value, label: ROLE_LABELS[value] }))}
+            />
+            <FilterSelect
+              label="Department"
+              value={department}
+              onChange={setDepartment}
+              allLabel="All departments"
+              options={departments.map((item) => ({ value: item.id, label: item.name }))}
             />
             <FilterSelect
               label="Status"
