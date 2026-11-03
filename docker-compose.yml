@@ -28,7 +28,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-django-insecure-local-dev-only}
       DEBUG: ${DEBUG:-true}
       DATABASE_URL: postgres://${POSTGRES_USER:-uemp}:${POSTGRES_PASSWORD:-uemp}@db:5432/${POSTGRES_DB:-uemp}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,api}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
     ports:

@@ -5,8 +5,9 @@ SECRET_KEY = env("SECRET_KEY", default="django-insecure-local-dev-only")
 
 DEBUG = env.bool("DEBUG", default=True)
 
-# "api" is the Host header the next proxy sends inside compose
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "api"])
+# "api" is the Host header the next proxy sends inside compose.
+# "0.0.0.0" is used when accessing the development server directly.
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0", "api"])
 
 DATABASES = {
     "default": env.db("DATABASE_URL", default="postgres://uemp:uemp@localhost:5433/uemp"),
