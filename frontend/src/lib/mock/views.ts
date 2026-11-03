@@ -11,7 +11,6 @@ import type {
   ResultSheetSummary,
   Semester,
   SemesterResult,
-  SessionUser,
   StaffProfile,
   Student,
   StudentResults,
@@ -68,18 +67,6 @@ export function courseView(course: CourseRow): Course {
   };
 }
 
-export function sessionUserView(user: UserRow): SessionUser {
-  return {
-    id: user.id,
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    fullName: displayName(user),
-    role: user.role,
-    department: user.departmentId ? departmentRef(user.departmentId) : null,
-  };
-}
-
 export function studentView(row: StudentRow): Student {
   const user = findUser(row.userId)!;
   const program = db.programs.find((program) => program.id === row.programId)!;
@@ -114,8 +101,6 @@ export function staffView(user: UserRow): StaffProfile {
     fullName: displayName(user),
     email: user.email,
     phone: user.phone,
-    rank: staff.rank,
-    office: staff.office,
     status: user.status,
     role: user.role,
     faculty: user.departmentId ? facultyRefForDepartment(user.departmentId) : null,

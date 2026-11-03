@@ -12,15 +12,6 @@ import { withToast } from "@/lib/toast";
 import type { Lecturer } from "@/lib/types";
 
 const TITLES = ["Prof.", "Dr.", "Engr.", "Mr.", "Mrs.", "Ms."];
-const RANKS = [
-  "Professor",
-  "Reader",
-  "Senior Lecturer",
-  "Lecturer I",
-  "Lecturer II",
-  "Assistant Lecturer",
-  "Graduate Assistant",
-];
 
 const EMPTY = { firstName: "", lastName: "", email: "", staffId: "", phone: "" };
 
@@ -44,7 +35,6 @@ export function LecturerFormDialog({ open, onOpenChange, lecturer, onSaved }: Le
             lastName: lecturer.lastName,
             email: lecturer.email,
             staffId: lecturer.staffId,
-            rank: lecturer.rank,
             phone: lecturer.phone,
           }
         : EMPTY,
@@ -83,13 +73,6 @@ export function LecturerFormDialog({ open, onOpenChange, lecturer, onSaved }: Le
         <TextField control={form.control} name="lastName" label="Last name" autoComplete="off" />
         <TextField control={form.control} name="email" label="Email" type="email" autoComplete="off" />
         <TextField control={form.control} name="phone" label="Phone number" type="tel" autoComplete="off" />
-        <SelectField
-          control={form.control}
-          name="rank"
-          label="Rank"
-          className="sm:col-span-2"
-          options={RANKS.map((rank) => ({ value: rank, label: rank }))}
-        />
       </div>
     </FormDialog>
   );

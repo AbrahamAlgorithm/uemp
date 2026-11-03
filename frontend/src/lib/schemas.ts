@@ -44,7 +44,6 @@ export type StudentContactInput = z.infer<typeof studentContactSchema>;
 
 export const staffContactSchema = z.object({
   phone,
-  office: requiredText("Office"),
 });
 export type StaffContactInput = z.infer<typeof staffContactSchema>;
 
@@ -58,7 +57,7 @@ export const studentSchema = z.object({
     .regex(/^[A-Z]{3}\/\d{4}\/\d{4}$/, "Use the format CSC/2026/0001"),
   programId: pick("program"),
   level: pick("level"),
-  gender: z.enum(["MALE", "FEMALE"], { error: "Select a gender" }),
+  gender: z.enum(["M", "F"], { error: "Select a gender" }),
   phone,
 });
 export type StudentInput = z.infer<typeof studentSchema>;
@@ -72,7 +71,6 @@ export const lecturerSchema = z.object({
     .string()
     .trim()
     .regex(/^[A-Z]{3}\/[A-Z]{2,3}\/\d{3}$/, "Use the format CVU/CSC/014"),
-  rank: requiredText("Rank", 60),
   phone,
 });
 export type LecturerInput = z.infer<typeof lecturerSchema>;

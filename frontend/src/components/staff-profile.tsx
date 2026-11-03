@@ -44,7 +44,7 @@ export function StaffProfileView() {
           <Button
             variant="outline"
             onClick={() => {
-              form.reset({ phone: data.phone, office: data.office });
+              form.reset({ phone: data.phone });
               setEditing(true);
             }}
           >
@@ -63,7 +63,7 @@ export function StaffProfileView() {
             </Avatar>
             <div>
               <p className="font-semibold">{data.fullName}</p>
-              <p className="text-sm text-muted-foreground">{data.rank}</p>
+              <p className="text-sm text-muted-foreground">{ROLE_LABELS[data.role]}</p>
             </div>
             <UserStatusBadge status={data.status} />
           </CardContent>
@@ -76,12 +76,11 @@ export function StaffProfileView() {
             <DetailList
               items={[
                 { label: "Staff ID", value: data.staffId },
-                { label: "Role", value: ROLE_LABELS[data.role] },
+                { label: "Title", value: data.title },
                 { label: "Department", value: data.department?.name },
                 { label: "Faculty", value: data.faculty?.name },
                 { label: "Email", value: data.email },
                 { label: "Phone", value: data.phone },
-                { label: "Office", value: data.office },
               ]}
             />
           </CardContent>
@@ -96,7 +95,6 @@ export function StaffProfileView() {
         onSubmit={save}
       >
         <TextField control={form.control} name="phone" label="Phone number" type="tel" autoComplete="tel" />
-        <TextField control={form.control} name="office" label="Office" />
       </FormDialog>
     </>
   );

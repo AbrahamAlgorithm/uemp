@@ -1,9 +1,9 @@
-import type { ActivationRequestInput, LoginInput } from "../../schemas";
+import type { ActivationRequestInput } from "../../schemas";
 import type { ActivationChallenge, DemoAccount, Role } from "../../types";
 import { db } from "../db";
 import { DEMO_ACTIVATION_CODE, DEMO_PASSWORD, DEMO_USER_IDS, type UserRow } from "../seed";
-import { currentUser, fail, logAudit, now, sleep, storedUserId, storeUserId } from "../session";
-import { currentSemesterRow, displayName, findStaff, findStudent, findUser, semesterView, sessionUserView } from "../views";
+import { currentUser, fail, logAudit, sleep } from "../session";
+import { currentSemesterRow, displayName, findStaff, findStudent, findUser, semesterView } from "../views";
 
 const CODE_LIFETIME = 600;
 const RESEND_AFTER = 45;
@@ -33,31 +33,6 @@ function maskEmail(email: string) {
 }
 
 export const authHandlers = {
-  async login(input: LoginInput) {
-    await sleep();
-    const user = findByIdentifier(input.identifier);
-    if (!user || input.password !== (passwords.get(user.id) ?? DEMO_PASSWORD)) {
-      fail(400, "Staff/Student ID or password is incorrect.");
-    }
-    assertCanSignIn(user);
-    user.lastLogin = now();
-    storeUserId(user.id);
-    logAudit(user, "LOGIN", identifierOf(user), "Signed in with ID and password");
-    return sessionUserView(user);
-  },
-
-  async logout() {
-    await sleep(100);
-    storeUserId(null);
-  },
-
-  async getSession() {
-    await sleep(50);
-    const id = storedUserId();
-    const user = id === null ? undefined : findUser(id);
-    return user?.status === "ACTIVE" ? sessionUserView(user) : null;
-  },
-
   async requestActivation(input: ActivationRequestInput): Promise<ActivationChallenge> {
     await sleep();
     const user = findByIdentifier(input.identifier);

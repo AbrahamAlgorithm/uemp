@@ -6,7 +6,9 @@ import { lecturerHandlers } from "./handlers/lecturer";
 import { resultHandlers } from "./handlers/results";
 import { studentHandlers } from "./handlers/student";
 
-export const mockApi: Api = {
+export { actAsDemoUser } from "./session";
+
+export const mockApi: Omit<Api, "login" | "logout" | "getSession"> = {
   ...authHandlers,
   ...studentHandlers,
   ...lecturerHandlers,

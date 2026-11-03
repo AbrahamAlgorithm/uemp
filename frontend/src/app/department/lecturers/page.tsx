@@ -44,7 +44,6 @@ export default function DepartmentLecturersPage() {
         </div>
       ),
     },
-    { accessorKey: "rank", header: "Rank", cell: ({ getValue }) => <span className="whitespace-nowrap">{getValue<string>()}</span> },
     { accessorKey: "phone", header: "Phone" },
     { accessorKey: "courseCount", header: ({ column }) => <SortHeader column={column} title="Courses" /> },
     { accessorKey: "status", header: "Status", cell: ({ row }) => <UserStatusBadge status={row.original.status} /> },

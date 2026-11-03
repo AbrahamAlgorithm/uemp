@@ -1,4 +1,4 @@
-import { MAX_UNITS_PER_SEMESTER } from "../constants";
+import { CA_MAX, EXAM_MAX, MAX_UNITS_PER_SEMESTER } from "../constants";
 import { DEFAULT_GRADE_SCALE } from "../grading";
 import type { AuditAction, GradeBand, SemesterName, SheetAction, SheetStatus } from "../types";
 import {
@@ -156,8 +156,6 @@ function buildPeople() {
       userId: person.id,
       staffId: `CVU/${department?.code ?? "REG"}/${String(person.id * 7 + 3).padStart(3, "0")}`,
       title: person.title,
-      rank: person.rank,
-      office: person.office,
     });
   }
 
@@ -265,8 +263,8 @@ function buildResults(registrations: RegistrationRow[], students: StudentRow[], 
         const ability = students.find((student) => student.userId === row.studentId)!.ability;
         const noise = random(row.studentId * 1000 + course.id * 7 + semester.id);
         scores[row.studentId] = {
-          ca: clamp(Math.round(30 * (ability + (noise() - 0.5) * 0.3)), 6, 30),
-          exam: clamp(Math.round(70 * (ability - 0.05 + (noise() - 0.5) * 0.36)), 10, 70),
+          ca: clamp(Math.round(CA_MAX * (ability + (noise() - 0.5) * 0.3)), 8, CA_MAX),
+          exam: clamp(Math.round(EXAM_MAX * (ability - 0.05 + (noise() - 0.5) * 0.36)), 9, EXAM_MAX),
         };
       });
 

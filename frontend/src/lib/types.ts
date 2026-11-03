@@ -4,7 +4,7 @@ export type SemesterName = "FIRST" | "SECOND";
 export type Level = 100 | 200 | 300 | 400 | 500;
 export type SheetStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
 export type Grade = "A" | "B" | "C" | "D" | "E" | "F";
-export type Gender = "MALE" | "FEMALE";
+export type Gender = "M" | "F";
 
 export interface Ref {
   id: number;
@@ -113,8 +113,6 @@ export interface StaffProfile {
   fullName: string;
   email: string;
   phone: string;
-  rank: string;
-  office: string;
   status: UserStatus;
   role: Role;
   faculty: CodedRef | null;

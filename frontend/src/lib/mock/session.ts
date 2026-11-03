@@ -1,7 +1,7 @@
 import { ApiError } from "../api/http";
 import type { AuditAction, Role } from "../types";
 import { db, nextId } from "./db";
-import { IP_ADDRESSES, type UserRow } from "./seed";
+import { DEMO_USER_IDS, IP_ADDRESSES, type UserRow } from "./seed";
 import { findUser } from "./views";
 
 const STORAGE_KEY = "uemp.mock.user";
@@ -30,6 +30,10 @@ export function storeUserId(id: number | null) {
     if (id === null) window.localStorage.removeItem(STORAGE_KEY);
     else window.localStorage.setItem(STORAGE_KEY, String(id));
   } catch {}
+}
+
+export function actAsDemoUser(role: Role | null) {
+  storeUserId(role === null ? null : DEMO_USER_IDS[role]);
 }
 
 export function currentUser(): UserRow {

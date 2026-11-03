@@ -60,7 +60,7 @@ export default function StudentProfilePage() {
             <DetailList
               items={[
                 { label: "Full name", value: data.fullName },
-                { label: "Gender", value: data.gender === "FEMALE" ? "Female" : "Male" },
+                { label: "Gender", value: data.gender === "F" ? "Female" : "Male" },
                 { label: "Date of birth", value: data.dateOfBirth && formatDate(data.dateOfBirth) },
                 { label: "Email", value: data.email },
                 { label: "Phone", value: data.phone },

@@ -223,7 +223,7 @@ export const departmentHandlers = {
       lastLogin: null,
     };
     db.users.push(account);
-    db.staff.push({ userId: id, staffId: input.staffId, title: input.title, rank: input.rank, office: "To be assigned" });
+    db.staff.push({ userId: id, staffId: input.staffId, title: input.title });
     logAudit(user, "CREATE", displayName(account), `Added lecturer ${input.staffId}`);
     return lecturerView(account);
   },
@@ -236,7 +236,7 @@ export const departmentHandlers = {
     assertUniqueEmail(input.email, id);
     if (db.staff.some((row) => row.staffId === input.staffId && row.userId !== id)) fail(400, `${input.staffId} is already in use.`);
     Object.assign(account, { email: input.email.toLowerCase(), firstName: input.firstName, lastName: input.lastName, phone: input.phone });
-    Object.assign(findStaff(id)!, { staffId: input.staffId, title: input.title, rank: input.rank });
+    Object.assign(findStaff(id)!, { staffId: input.staffId, title: input.title });
     logAudit(user, "UPDATE", displayName(account), "Updated lecturer record");
     return lecturerView(account);
   },

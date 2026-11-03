@@ -8,13 +8,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { AuthHeading, AuthLayout } from "@/components/auth/auth-layout";
-import { DemoAccounts } from "@/components/auth/demo-accounts";
 import { FloatingField } from "@/components/auth/floating-field";
 import { useSession } from "@/components/session-provider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { errorMessage, usingMocks } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
 import { ROLE_HOME } from "@/lib/constants";
 import { loginSchema, type LoginInput } from "@/lib/schemas";
 
@@ -57,20 +56,8 @@ export default function LoginPage() {
           </Button>
         </p>
       }
-      demo={
-        usingMocks && (
-          <DemoAccounts
-            show="password"
-            selected={form.watch("identifier")}
-            onPick={(account) => {
-              setError(null);
-              form.reset({ identifier: account.identifier, password: account.password });
-            }}
-          />
-        )
-      }
     >
-      <AuthHeading icon={LogIn} title="Sign in" description="Use your staff or student ID and your portal password." />
+      <AuthHeading icon={LogIn} title="Sign in" description="Use your email, matric number or staff ID and your portal password." />
       <form onSubmit={submit} noValidate className="mt-8 space-y-4">
         {error && (
           <Alert variant="destructive">
@@ -78,7 +65,7 @@ export default function LoginPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <FloatingField control={form.control} name="identifier" label="Staff/Student ID" autoComplete="username" autoFocus />
+        <FloatingField control={form.control} name="identifier" label="Email, matric number or staff ID" autoComplete="username" autoFocus />
         <FloatingField control={form.control} name="password" label="Password" type="password" autoComplete="current-password" />
         <div className="flex justify-end">
           <Link href="/reset-password" className="text-sm font-medium underline-offset-4 hover:underline">

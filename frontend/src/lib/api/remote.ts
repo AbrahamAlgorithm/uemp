@@ -33,6 +33,7 @@ import type {
   RegistrationOptions,
   ResultSheet,
   ResultSheetSummary,
+  Role,
   ScoreInput,
   Semester,
   SessionUser,
@@ -52,15 +53,38 @@ const post = <T>(path: string, json?: unknown) => request<T>(path, { method: "PO
 const patch = <T>(path: string, json: unknown) => request<T>(path, { method: "PATCH", json });
 const put = <T>(path: string, json: unknown) => request<T>(path, { method: "PUT", json });
 
+interface MeResponse {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: Role;
+  status: UserStatus;
+  department: { id: number; name: string; code: string } | null;
+}
+
+function toSessionUser(me: MeResponse): SessionUser {
+  return {
+    id: me.id,
+    email: me.email,
+    firstName: me.first_name,
+    lastName: me.last_name,
+    fullName: [me.first_name, me.last_name].filter(Boolean).join(" ") || me.email,
+    role: me.role,
+    department: me.department && { id: me.department.id, name: me.department.name, code: me.department.code },
+  };
+}
+
 export const remoteApi = {
-  login: (input: LoginInput) => post<SessionUser>("auth/login/", input),
+  login: async (input: LoginInput) =>
+    toSessionUser(await request<MeResponse>("auth/login/", { method: "POST", json: input, refresh: false, redirectToLogin: false })),
   requestActivation: (input: ActivationRequestInput) => post<ActivationChallenge>("auth/activate/", input),
   verifyActivation: (input: { identifier: string; code: string }) => post<{ token: string }>("auth/activate/verify/", input),
   completeActivation: (input: { token: string; password: string }) => post<void>("auth/activate/complete/", input),
-  logout: () => post<void>("auth/logout/"),
+  logout: () => request<void>("auth/logout/", { method: "POST", refresh: false, redirectToLogin: false }),
   getSession: async (): Promise<SessionUser | null> => {
     try {
-      return await get<SessionUser>("auth/me/");
+      return toSessionUser(await request<MeResponse>("auth/me/", { redirectToLogin: false }));
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null;
       throw error;

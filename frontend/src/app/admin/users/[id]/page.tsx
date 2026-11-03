@@ -85,8 +85,7 @@ export default function UserDetailPage() {
                 <DetailList
                   items={[
                     { label: "Staff ID", value: user.staff.staffId },
-                    { label: "Rank", value: user.staff.rank },
-                    { label: "Office", value: user.staff.office },
+                    { label: "Title", value: user.staff.title },
                     { label: "Faculty", value: user.staff.faculty?.name ?? "—" },
                   ]}
                 />

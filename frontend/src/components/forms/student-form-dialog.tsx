@@ -75,8 +75,8 @@ export function StudentFormDialog({ open, onOpenChange, student, programs, onSav
           name="gender"
           label="Gender"
           options={[
-            { value: "FEMALE", label: "Female" },
-            { value: "MALE", label: "Male" },
+            { value: "F", label: "Female" },
+            { value: "M", label: "Male" },
           ]}
         />
         <SelectField

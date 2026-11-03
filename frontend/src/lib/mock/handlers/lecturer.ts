@@ -10,7 +10,6 @@ import {
   findAllocation,
   findCourse,
   findSheet,
-  findStaff,
   registrationsFor,
   semesterView,
   sheetEntries,
@@ -118,8 +117,7 @@ export const lecturerHandlers = {
     await sleep();
     const user = requireRole("LECTURER", "DEPT_ADMIN", "SUPER_ADMIN");
     user.phone = input.phone;
-    findStaff(user.id)!.office = input.office;
-    logAudit(user, "UPDATE", "Profile", "Updated phone number and office");
+    logAudit(user, "UPDATE", "Profile", "Updated phone number");
     return staffView(user);
   },
 };

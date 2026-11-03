@@ -26,7 +26,7 @@ const studentColumns: ColumnDef<Student>[] = [
   { id: "name", accessorFn: (row) => `${row.lastName} ${row.firstName}`, header: ({ column }) => <SortHeader column={column} title="Name" /> },
   { id: "program", accessorFn: (row) => row.program.name, header: "Program" },
   { accessorKey: "level", header: ({ column }) => <SortHeader column={column} title="Level" /> },
-  { accessorKey: "gender", header: "Gender", cell: ({ getValue }) => (getValue() === "FEMALE" ? "F" : "M") },
+  { accessorKey: "gender", header: "Gender" },
   { accessorKey: "status", header: "Status", cell: ({ row }) => <UserStatusBadge status={row.original.status} /> },
 ];
 

@@ -64,8 +64,6 @@ export interface StaffRow {
   userId: number;
   staffId: string;
   title: string;
-  rank: string;
-  office: string;
 }
 
 export interface CourseRow {
@@ -199,26 +197,24 @@ const staff = (
   lastName: string,
   role: Role,
   departmentId: number | null,
-  rank: string,
-  office: string,
   status: UserStatus = "ACTIVE",
-) => ({ id, title, firstName, lastName, role, departmentId, rank, office, status });
+) => ({ id, title, firstName, lastName, role, departmentId, status });
 
 export const STAFF = [
-  staff(1, "Mr.", "Tunde", "Bakare", "SUPER_ADMIN", null, "Deputy Registrar (Academic)", "Registry, Senate Building"),
-  staff(2, "Mrs.", "Bisi", "Adewale", "DEPT_ADMIN", 1, "Departmental Administrator", "CSC Block A, Room 4"),
-  staff(3, "Mr.", "Kunle", "Ojo", "DEPT_ADMIN", 2, "Departmental Administrator", "Science Complex, Room 112"),
-  staff(4, "Mrs.", "Grace", "Effiong", "DEPT_ADMIN", 3, "Departmental Administrator", "Engineering Block B, Room 9"),
-  staff(10, "Dr.", "Adebayo", "Ogunleye", "LECTURER", 1, "Senior Lecturer", "CSC Block A, Room 21"),
-  staff(11, "Prof.", "Ngozi", "Eze", "LECTURER", 1, "Professor", "CSC Block A, Room 2"),
-  staff(12, "Dr.", "Ibrahim", "Musa", "LECTURER", 1, "Lecturer I", "CSC Block A, Room 18"),
-  staff(13, "Mrs.", "Funmilayo", "Adeyemi", "LECTURER", 1, "Lecturer II", "CSC Block B, Room 7"),
-  staff(14, "Mr.", "Emeka", "Nwosu", "LECTURER", 1, "Assistant Lecturer", "CSC Block B, Room 11"),
-  staff(15, "Dr.", "Aisha", "Bello", "LECTURER", 2, "Senior Lecturer", "Science Complex, Room 205"),
-  staff(16, "Prof.", "Olumide", "Akinola", "LECTURER", 2, "Professor", "Science Complex, Room 201"),
-  staff(17, "Engr.", "Chukwudi", "Obi", "LECTURER", 3, "Lecturer I", "Engineering Block A, Room 14"),
-  staff(18, "Dr.", "Halima", "Yusuf", "LECTURER", 3, "Senior Lecturer", "Engineering Block A, Room 3"),
-  staff(19, "Dr.", "Femi", "Oladipo", "LECTURER", 1, "Lecturer I", "CSC Block B, Room 2", "INACTIVE"),
+  staff(1, "Mr.", "Tunde", "Bakare", "SUPER_ADMIN", null),
+  staff(2, "Mrs.", "Bisi", "Adewale", "DEPT_ADMIN", 1),
+  staff(3, "Mr.", "Kunle", "Ojo", "DEPT_ADMIN", 2),
+  staff(4, "Mrs.", "Grace", "Effiong", "DEPT_ADMIN", 3),
+  staff(10, "Dr.", "Adebayo", "Ogunleye", "LECTURER", 1),
+  staff(11, "Prof.", "Ngozi", "Eze", "LECTURER", 1),
+  staff(12, "Dr.", "Ibrahim", "Musa", "LECTURER", 1),
+  staff(13, "Mrs.", "Funmilayo", "Adeyemi", "LECTURER", 1),
+  staff(14, "Mr.", "Emeka", "Nwosu", "LECTURER", 1),
+  staff(15, "Dr.", "Aisha", "Bello", "LECTURER", 2),
+  staff(16, "Prof.", "Olumide", "Akinola", "LECTURER", 2),
+  staff(17, "Engr.", "Chukwudi", "Obi", "LECTURER", 3),
+  staff(18, "Dr.", "Halima", "Yusuf", "LECTURER", 3),
+  staff(19, "Dr.", "Femi", "Oladipo", "LECTURER", 1, "INACTIVE"),
 ];
 
 const student = (
@@ -232,28 +228,28 @@ const student = (
 ) => ({ id, firstName, lastName, gender, programId, entrySessionId, status });
 
 export const STUDENTS = [
-  student(100, "Tobiloba", "Adeyemi", "MALE", 1, 4),
-  student(101, "Zainab", "Abdullahi", "FEMALE", 1, 4),
-  student(102, "Chukwuemeka", "Nnamdi", "MALE", 2, 4),
-  student(103, "Obinna", "Agu", "MALE", 1, 4, "INACTIVE"),
-  student(104, "Oluwaseun", "Bamidele", "MALE", 1, 3),
-  student(105, "Amarachi", "Uche", "FEMALE", 1, 3),
-  student(106, "Yusuf", "Danjuma", "MALE", 2, 3),
-  student(107, "Chiamaka", "Okafor", "FEMALE", 1, 2),
-  student(108, "Ifeanyi", "Okonkwo", "MALE", 1, 2),
-  student(109, "Temitope", "Alabi", "FEMALE", 1, 2),
-  student(110, "Abubakar", "Sani", "MALE", 2, 2, "SUSPENDED"),
-  student(111, "Damilola", "Oyelaran", "FEMALE", 2, 2),
-  student(112, "Kehinde", "Ogunbiyi", "MALE", 1, 1),
-  student(113, "Hauwa", "Ibrahim", "FEMALE", 1, 1),
-  student(114, "Babatunde", "Olawale", "MALE", 3, 3),
-  student(115, "Ngozi", "Chukwu", "FEMALE", 3, 3),
-  student(116, "Musa", "Garba", "MALE", 3, 4),
-  student(117, "Folasade", "Ajayi", "FEMALE", 3, 4),
-  student(118, "Emeka", "Eze", "MALE", 4, 3),
-  student(119, "Rukayat", "Lawal", "FEMALE", 4, 3),
-  student(120, "Segun", "Afolabi", "MALE", 4, 4),
-  student(121, "Blessing", "Etim", "FEMALE", 4, 4),
+  student(100, "Tobiloba", "Adeyemi", "M", 1, 4),
+  student(101, "Zainab", "Abdullahi", "F", 1, 4),
+  student(102, "Chukwuemeka", "Nnamdi", "M", 2, 4),
+  student(103, "Obinna", "Agu", "M", 1, 4, "INACTIVE"),
+  student(104, "Oluwaseun", "Bamidele", "M", 1, 3),
+  student(105, "Amarachi", "Uche", "F", 1, 3),
+  student(106, "Yusuf", "Danjuma", "M", 2, 3),
+  student(107, "Chiamaka", "Okafor", "F", 1, 2),
+  student(108, "Ifeanyi", "Okonkwo", "M", 1, 2),
+  student(109, "Temitope", "Alabi", "F", 1, 2),
+  student(110, "Abubakar", "Sani", "M", 2, 2, "SUSPENDED"),
+  student(111, "Damilola", "Oyelaran", "F", 2, 2),
+  student(112, "Kehinde", "Ogunbiyi", "M", 1, 1),
+  student(113, "Hauwa", "Ibrahim", "F", 1, 1),
+  student(114, "Babatunde", "Olawale", "M", 3, 3),
+  student(115, "Ngozi", "Chukwu", "F", 3, 3),
+  student(116, "Musa", "Garba", "M", 3, 4),
+  student(117, "Folasade", "Ajayi", "F", 3, 4),
+  student(118, "Emeka", "Eze", "M", 4, 3),
+  student(119, "Rukayat", "Lawal", "F", 4, 3),
+  student(120, "Segun", "Afolabi", "M", 4, 4),
+  student(121, "Blessing", "Etim", "F", 4, 4),
 ];
 
 export const DEMO_USER_IDS = { STUDENT: 107, LECTURER: 10, DEPT_ADMIN: 2, SUPER_ADMIN: 1 } as const;
